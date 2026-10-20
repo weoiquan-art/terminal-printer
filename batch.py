@@ -149,7 +149,7 @@ def cmd_print(args):
 
     data = tspl.render_many(label, jobs)
     if args.dry_run:
-        sys.stdout.write(data.decode("ascii"))
+        sys.stdout.write(tspl.render_many(label, jobs, display=True))
     if args.do_print:
         written = printer.send_raw(args.printer, data, "terminal-printer batch")
         print("已发送 {} 字节到「{}」，共 {} 张".format(written, args.printer, total))

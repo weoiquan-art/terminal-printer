@@ -18,6 +18,7 @@
   header select { width: auto; min-width: 160px; }
   #status { color: var(--muted); min-width: 120px; }
   #status.err { color: var(--warn); }
+  #status.ok { color: #067647; }
   main { display: grid; grid-template-columns: 260px 1fr 300px; gap: 12px; padding: 12px; align-items: start; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
   section h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
@@ -28,30 +29,45 @@
   input[type=checkbox] { margin: 0 4px 0 0; }
   button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; background: #fff; cursor: pointer; }
   button:hover { border-color: #aaa; }
+  button:disabled { opacity: .5; cursor: default; }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
   button.danger { color: #b42318; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   #elList { list-style: none; margin: 0; padding: 0; }
-  #elList li { padding: 4px 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
+  #elList li { padding: 4px 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; user-select: none; }
   #elList li.sel { background: var(--sel); }
+  #elList li.primary { outline: 1px solid var(--accent); }
   #elList li .w { color: var(--warn); }
   .center-col { min-width: 0; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; color: var(--muted); }
+  .toolbar select { width: auto; }
+  .toolbar .group { display: flex; gap: 4px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  .toolbar .group button { padding: 3px 7px; }
+  .toolbar input[type=number] { width: 60px; }
   #stageWrap { background: #e6e6e1; border: 1px solid var(--line); border-radius: 8px; padding: 24px; overflow: auto; }
   #stage { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
-  #stage img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; image-rendering: pixelated; user-select: none; -webkit-user-drag: none; }
+  #stage img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; image-rendering: pixelated; user-select: none; -webkit-user-drag: none; pointer-events: none; }
   .ebox { position: absolute; border: 1px dashed rgba(31,111,235,.5); cursor: move; touch-action: none; }
   .ebox:hover { background: rgba(31,111,235,.06); }
   .ebox.sel { border: 2px solid var(--accent); background: var(--sel); }
   .ebox.bad { border-color: var(--warn); }
-  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; color: var(--muted); }
+  .handle { position: absolute; width: 11px; height: 11px; background: #fff; border: 2px solid var(--accent); border-radius: 2px; touch-action: none; z-index: 2; }
+  .handle.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+  .handle.e { right: -7px; top: calc(50% - 6px); cursor: ew-resize; }
+  .handle.s { bottom: -7px; left: calc(50% - 6px); cursor: ns-resize; }
+  #sizeTip { position: absolute; background: #1d1d1b; color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 4px; pointer-events: none; z-index: 3; display: none; white-space: nowrap; }
   #warnings { margin-top: 10px; }
   #warnings div { background: var(--warn-bg); color: var(--warn); padding: 6px 8px; border-radius: 5px; margin-bottom: 4px; font-size: 13px; cursor: pointer; }
-  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  #props:empty::before { content: "点画布上的元素或左边列表来选中；按住 Shift 可多选"; color: var(--muted); }
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; max-width: 360px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+  dialog::backdrop { background: rgba(0,0,0,.25); }
+  dialog p { margin: 0 0 16px; white-space: pre-line; }
+  dialog .row { justify-content: flex-end; }
   @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; }
     .center-col { order: -1; }
   }
-  #props:empty::before { content: "点画布上的元素或左边列表来选中"; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -72,7 +88,7 @@
       <label class="f"><span>宽</span><input id="w" type="number" step="0.5" min="10" max="108"></label>
       <label class="f"><span>高</span><input id="h" type="number" step="0.5" min="10" max="300"></label>
       <label class="f"><span>间隙</span><input id="gap" type="number" step="0.5" min="0" max="10"></label>
-      <div class="hint">XP-420B 最宽约 108mm。改尺寸后，元素不会自动移动，超出范围的会标橙色。</div>
+      <div class="hint">要和打印机里装的标签纸一致，否则会跳纸。XP-420B 最宽约 108mm。改尺寸后元素不会自动移动，超出的会标橙色。</div>
     </section>
     <section>
       <h2>示例内容（只用于预览和打印一张）</h2>
@@ -96,10 +112,21 @@
   <div class="center-col">
     <div class="toolbar">
       <label>缩放 <select id="zoom"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option><option value="3">3×</option></select></label>
-      <label>对齐网格 <select id="snap"><option value="0.125">0.125mm（1 点）</option><option value="0.5" selected>0.5mm</option><option value="1">1mm</option></select></label>
-      <span>拖动元素移动；选中后可用方向键微调（Shift = 1mm）</span>
+      <label>网格 <select id="snap"><option value="0.125">0.125mm（1 点）</option><option value="0.5" selected>0.5mm</option><option value="1">1mm</option></select></label>
+      <div class="group" title="选一个：对齐到标签（留边距）；选多个：互相对齐">
+        对齐
+        <button data-align="left" title="左对齐">⇤</button>
+        <button data-align="hcenter" title="水平居中">↔</button>
+        <button data-align="right" title="右对齐">⇥</button>
+        <button data-align="top" title="顶对齐">⤒</button>
+        <button data-align="vcenter" title="垂直居中">↕</button>
+        <button data-align="bottom" title="底对齐">⤓</button>
+        边距 <input id="margin" type="number" step="0.5" min="0" value="1.5"> mm
+      </div>
+      <span id="alignHint"></span>
     </div>
-    <div id="stageWrap"><div id="stage"><img id="img" alt=""></div></div>
+    <div id="stageWrap"><div id="stage"><img id="img" alt=""><div id="sizeTip"></div></div></div>
+    <div class="hint">拖动移动；拖蓝色小方块改大小；方向键微调（Shift = 1mm）；Shift+点击多选；Delete 删除。</div>
     <div id="warnings"></div>
   </div>
   <div>
@@ -109,14 +136,17 @@
     </section>
   </div>
 </main>
+<dialog id="dlg"><p id="dlgMsg"></p><div class="row"><button id="dlgNo">取消</button><button id="dlgYes" class="primary">确定</button></div></dialog>
 <script>
 "use strict";
-const FONTS = {"1":"8×12","2":"12×20","3":"16×24","4":"24×32","5":"32×48","6":"14×19","7":"21×27","8":"14×25"};
 const TYPE_NAMES = {text:"文字", qrcode:"二维码", barcode:"条码", box:"线框", bar:"黑条"};
 const DEFAULT_VALUES = {no:"81 96020 0340", desc:"ENG MTG F RB", model:"18310 18360 22403 26414", price:"RM260+"};
 const $ = s => document.querySelector(s);
 
-let tpl = null, sel = -1, dirty = false, last = null, seq = 0, timer = null;
+let tpl = null, last = null, dirty = false, seq = 0, timer = null;
+let sel = -1;              // 主选中（属性面板显示它）
+let selSet = new Set();    // 全部选中
+let FONTS_TTF = [], FONTS_BUILTIN = {};
 let values = loadValues();
 
 function loadValues() {
@@ -125,8 +155,21 @@ function loadValues() {
 }
 function saveValues() { try { localStorage.setItem("tp.values", JSON.stringify(values)); } catch (e) {} }
 
-function status(msg, err) { const s = $("#status"); s.textContent = msg; s.className = err ? "err" : ""; }
+function status(msg, kind) { const s = $("#status"); s.textContent = msg; s.className = kind || ""; }
 function setDirty(d) { dirty = d; document.title = (d ? "● " : "") + "标签编辑器"; }
+
+// 页面内确认框（不用 window.confirm：有的内嵌浏览器会直接返回「取消」）
+function ask(msg, yes = "确定") {
+  return new Promise(resolve => {
+    const dlg = $("#dlg");
+    $("#dlgMsg").textContent = msg; $("#dlgYes").textContent = yes;
+    const done = v => { dlg.close(); $("#dlgYes").onclick = $("#dlgNo").onclick = null; dlg.oncancel = null; resolve(v); };
+    $("#dlgYes").onclick = () => done(true);
+    $("#dlgNo").onclick = () => done(false);
+    dlg.oncancel = e => { e.preventDefault(); done(false); };
+    dlg.showModal(); $("#dlgYes").focus();
+  });
+}
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
@@ -138,28 +181,30 @@ async function api(path, body) {
 
 // ---------- 模板加载 / 保存 ----------
 async function refreshList(selectName) {
-  const {templates} = await api("/api/templates");
-  $("#tplSelect").innerHTML = templates.map(n => `<option>${n}</option>`).join("");
+  const info = await api("/api/templates");
+  FONTS_TTF = info.fonts; FONTS_BUILTIN = info.builtin_fonts;
+  $("#tplSelect").innerHTML = info.templates.map(n => `<option>${n}</option>`).join("");
   if (selectName) $("#tplSelect").value = selectName;
 }
 async function openTemplate(name) {
-  if (dirty && !confirm("当前修改还没保存，确定打开别的模板？")) return;
+  if (dirty && !(await ask("当前修改还没保存，确定打开别的模板？", "不保存，打开"))) return;
   tpl = await api("/api/template/" + encodeURIComponent(name));
   $("#tplName").value = name;
-  sel = -1; setDirty(false);
+  clearSelection(); setDirty(false);
   syncSizeInputs(); renderList(); renderProps(); schedule(0);
   status("已打开 " + name);
 }
 async function save() {
   const name = $("#tplName").value.trim();
-  if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { status("模板名只能用英文字母、数字、- 和 _", true); return; }
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { status("模板名只能用英文字母、数字、- 和 _", "err"); return; }
   try {
     await api("/api/save", {name, template: tpl});
   } catch (e) {
-    if (e.status === 409 && confirm(`已有模板「${name}」，要覆盖吗？`)) await api("/api/save", {name, template: tpl, overwrite: true});
-    else { if (e.status !== 409) status("保存失败：" + e.message, true); return; }
+    if (e.status !== 409) { status("保存失败：" + e.message, "err"); return; }
+    if (!(await ask(`已有模板「${name}」，要覆盖吗？`, "覆盖"))) return;
+    await api("/api/save", {name, template: tpl, overwrite: true});
   }
-  setDirty(false); await refreshList(name); status("已保存 " + name);
+  setDirty(false); await refreshList(name); status("已保存 " + name, "ok");
 }
 
 // ---------- 尺寸与示例内容 ----------
@@ -180,10 +225,20 @@ async function refresh() {
   try {
     const res = await api("/api/preview", {template: tpl, values});
     if (my !== seq) return;
-    last = res; drawStage(); renderList(); status(dirty ? "未保存" : "");
-  } catch (e) { if (my === seq) status("预览失败：" + e.message, true); }
+    last = res; drawStage(); renderList();
+    if (dirty) status("未保存");
+  } catch (e) { if (my === seq) status("预览失败：" + e.message, "err"); }
 }
 function zoom() { return parseFloat($("#zoom").value); }
+function dpm() { return last ? last.dots_per_mm : 8; }
+function boxOf(i) { const b = last && last.boxes.find(b => b.el === i); return b ? b.box : null; }
+
+function handlesFor(el) {
+  if (el.type === "text") return el.max_width !== undefined ? ["se", "e"] : ["se"];
+  if (el.type === "qrcode") return ["se"];
+  if (el.type === "barcode") return ["e", "s"];
+  return ["se", "e", "s"];
+}
 function drawStage() {
   const z = zoom(), stage = $("#stage");
   stage.style.width = last.w * z + "px"; stage.style.height = last.h * z + "px";
@@ -192,60 +247,172 @@ function drawStage() {
   const bad = new Set(last.warnings.map(w => w.el));
   for (const {el, box} of last.boxes) {
     const d = document.createElement("div");
-    d.className = "ebox" + (el === sel ? " sel" : "") + (bad.has(el) ? " bad" : "");
+    d.className = "ebox" + (selSet.has(el) ? " sel" : "") + (bad.has(el) ? " bad" : "");
     Object.assign(d.style, {left: box[0]*z + "px", top: box[1]*z + "px", width: (box[2]-box[0])*z + "px", height: (box[3]-box[1])*z + "px"});
     d.dataset.el = el; d.title = describe(tpl.elements[el]);
     d.addEventListener("pointerdown", startDrag);
+    if (el === sel && selSet.size === 1) {
+      for (const kind of handlesFor(tpl.elements[el])) {
+        const h = document.createElement("div"); h.className = "handle " + kind; h.dataset.kind = kind;
+        h.title = handleTitle(tpl.elements[el], kind);
+        h.addEventListener("pointerdown", startResize);
+        d.appendChild(h);
+      }
+    }
     stage.appendChild(d);
   }
   $("#warnings").innerHTML = "";
   for (const w of last.warnings) {
     const d = document.createElement("div");
     d.textContent = `#${w.el + 1} ${TYPE_NAMES[tpl.elements[w.el]?.type] || ""}：${w.msg}`;
-    d.onclick = () => select(w.el);
+    d.onclick = () => select(w.el, false);
     $("#warnings").appendChild(d);
   }
+  $("#alignHint").textContent = selSet.size > 1 ? `已选 ${selSet.size} 个：互相对齐` : selSet.size === 1 ? "对齐到标签" : "";
 }
 $("#zoom").addEventListener("change", () => last && drawStage());
 
-// ---------- 拖动 ----------
-function boxOf(i) { const b = last && last.boxes.find(b => b.el === i); return b ? b.box : null; }
-function snapMm(v) { const s = parseFloat($("#snap").value); return Math.round(Math.round(v / s) * s * 1000) / 1000; }
-function moveElement(i, dxMm, dyMm) {
-  const el = tpl.elements[i], box = boxOf(i), dpm = last.dots_per_mm;
+// ---------- 移动 ----------
+function roundMm(v, grid) { return Math.round(Math.round(v / grid) * grid * 1000) / 1000; }
+function shiftElement(i, dxMm, dyMm, grid) {
+  const el = tpl.elements[i], box = boxOf(i), k = dpm();
+  if (!box) return;
   if (dxMm) {
-    const x0 = typeof el.x === "number" ? el.x : box[0] / dpm;  // "center" 拖动后变成固定位置
-    el.x = snapMm(x0 + dxMm);
+    const x0 = typeof el.x === "number" ? el.x : box[0] / k;   // "center" 移动后变成固定位置
+    el.x = roundMm(x0 + dxMm, grid);
   }
   if (dyMm) {
-    const y0 = typeof el.y === "number" ? el.y : box[1] / dpm;  // "after" 拖动后变成固定位置
-    el.y = snapMm(y0 + dyMm);
+    const y0 = typeof el.y === "number" ? el.y : box[1] / k;   // "after" 移动后变成固定位置
+    el.y = roundMm(y0 + dyMm, grid);
   }
+}
+function moveSelected(dxMm, dyMm, grid) {
+  for (const i of selSet) shiftElement(i, dxMm, dyMm, grid);
   changed(); renderProps();
 }
+function snapGrid() { return parseFloat($("#snap").value); }
+
 function startDrag(ev) {
-  const node = ev.currentTarget, i = +node.dataset.el;
-  select(i); ev.preventDefault();
-  const sx = ev.clientX, sy = ev.clientY, left = parseFloat(node.style.left), top = parseFloat(node.style.top);
-  const target = document.querySelector(`.ebox[data-el="${i}"]`) || node;
+  if (ev.target.classList.contains("handle")) return;
+  const i = +ev.currentTarget.dataset.el;
+  if (ev.shiftKey) { select(i, true); return; }
+  // 不重画画布（会删掉正在拖的框），只更新高亮
+  if (!selSet.has(i)) selSet = new Set([i]);
+  sel = i; renderList(); renderProps();
+  document.querySelectorAll(".ebox").forEach(n => n.classList.toggle("sel", selSet.has(+n.dataset.el)));
+  ev.preventDefault();
+  const sx = ev.clientX, sy = ev.clientY;
+  const nodes = [...document.querySelectorAll(".ebox")].filter(n => selSet.has(+n.dataset.el))
+    .map(n => ({n, left: parseFloat(n.style.left), top: parseFloat(n.style.top)}));
+  const target = ev.currentTarget;
   target.setPointerCapture(ev.pointerId);
-  const move = e => { target.style.left = left + e.clientX - sx + "px"; target.style.top = top + e.clientY - sy + "px"; };
+  const move = e => nodes.forEach(o => { o.n.style.left = o.left + e.clientX - sx + "px"; o.n.style.top = o.top + e.clientY - sy + "px"; });
   const up = e => {
     target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up);
-    const k = zoom() * last.dots_per_mm, dx = (e.clientX - sx) / k, dy = (e.clientY - sy) / k;
-    if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) moveElement(i, dx, dy);
+    const k = zoom() * dpm();
+    if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) moveSelected((e.clientX - sx) / k, (e.clientY - sy) / k, snapGrid());
+    else drawStage();  // 只是点选：重画以显示改大小的手柄
   };
   target.addEventListener("pointermove", move); target.addEventListener("pointerup", up);
 }
+
+// ---------- 改大小 ----------
+function handleTitle(el, kind) {
+  if (el.type === "text") return kind === "e" ? "拖动改换行宽度" : "拖动改字号";
+  if (el.type === "qrcode") return "拖动改二维码大小";
+  if (el.type === "barcode") return kind === "e" ? "拖动改线宽（条码宽度）" : "拖动改条码高度";
+  return "拖动改大小";
+}
+// 根据拖出来的新宽高（点）算出元素的新参数；返回说明文字
+function applySize(el, kind, ow, oh, nw, nh, commit) {
+  const k = dpm(), t = {};
+  if (el.type === "text" && el.family !== undefined) {
+    if (kind === "e") t.max_width = roundMm(nw / k, 0.5);
+    else t.size = Math.max(1, Math.round((el.size ?? 3) * nh / oh * 10) / 10);
+  } else if (el.type === "text") {
+    if (kind === "e") t.max_width = roundMm(nw / k, 0.5);
+    else {
+      const ch = FONTS_BUILTIN[el.font ?? "3"][1];
+      const s = Math.min(10, Math.max(1, Math.round(nh / ch)));
+      t.scale = [s, s];
+    }
+  } else if (el.type === "qrcode") {
+    const modules = ow / (el.cell ?? 4);
+    t.cell = Math.min(20, Math.max(1, Math.round(Math.max(nw, nh) / modules)));
+  } else if (el.type === "barcode") {
+    if (kind === "e") t.narrow = Math.min(10, Math.max(1, Math.round(nw / (ow / (el.narrow ?? 2)))));
+    else t.height = roundMm(nh / k, 0.5);
+  } else {
+    if (kind !== "s") t.w = Math.max(0.125, roundMm(nw / k, snapGrid()));
+    if (kind !== "e") t.h = Math.max(0.125, roundMm(nh / k, snapGrid()));
+  }
+  if (commit) { Object.assign(el, t); if (t.scale && t.scale[0] === 1) delete el.scale; }
+  const label = {size: "字号", max_width: "换行宽度", scale: "放大", cell: "单元", narrow: "线宽", height: "高度", w: "宽", h: "高"};
+  const unit = {size: "mm", max_width: "mm", height: "mm", w: "mm", h: "mm", cell: " 点", narrow: " 点", scale: "×"};
+  return Object.entries(t).map(([key, v]) => `${label[key]} ${Array.isArray(v) ? v[0] : v}${unit[key]}`).join("  ");
+}
+function startResize(ev) {
+  ev.stopPropagation(); ev.preventDefault();
+  const h = ev.currentTarget, kind = h.dataset.kind, box = h.parentElement, el = tpl.elements[sel];
+  const z = zoom(), ow = parseFloat(box.style.width), oh = parseFloat(box.style.height);
+  const sx = ev.clientX, sy = ev.clientY, tip = $("#sizeTip");
+  h.setPointerCapture(ev.pointerId);
+  const dims = e => [Math.max(4, ow + (kind === "s" ? 0 : e.clientX - sx)), Math.max(4, oh + (kind === "e" ? 0 : e.clientY - sy))];
+  const move = e => {
+    const [w, hh] = dims(e);
+    box.style.width = w + "px"; box.style.height = hh + "px";
+    tip.textContent = applySize(el, kind, ow / z, oh / z, w / z, hh / z, false);
+    Object.assign(tip.style, {display: "block", left: parseFloat(box.style.left) + w + 10 + "px", top: parseFloat(box.style.top) + hh + 4 + "px"});
+  };
+  const up = e => {
+    h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up);
+    tip.style.display = "none";
+    const [w, hh] = dims(e);
+    if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) {
+      status(applySize(el, kind, ow / z, oh / z, w / z, hh / z, true));
+      changed(); renderProps();
+    }
+  };
+  h.addEventListener("pointermove", move); h.addEventListener("pointerup", up);
+}
+
+// ---------- 对齐 ----------
+function align(kind) {
+  const items = [...selSet].map(i => [i, boxOf(i)]).filter(([, b]) => b);
+  if (!items.length) { status("先选中要对齐的元素", "err"); return; }
+  let ref;
+  if (items.length === 1) {
+    const m = (parseFloat($("#margin").value) || 0) * dpm();
+    ref = [m, m, last.w - m, last.h - m];
+  } else {
+    ref = [Math.min(...items.map(([, b]) => b[0])), Math.min(...items.map(([, b]) => b[1])),
+           Math.max(...items.map(([, b]) => b[2])), Math.max(...items.map(([, b]) => b[3]))];
+  }
+  const k = dpm();
+  for (const [i, b] of items) {
+    let dx = 0, dy = 0;
+    if (kind === "left") dx = ref[0] - b[0];
+    if (kind === "right") dx = ref[2] - b[2];
+    if (kind === "hcenter") dx = (ref[0] + ref[2]) / 2 - (b[0] + b[2]) / 2;
+    if (kind === "top") dy = ref[1] - b[1];
+    if (kind === "bottom") dy = ref[3] - b[3];
+    if (kind === "vcenter") dy = (ref[1] + ref[3]) / 2 - (b[1] + b[3]) / 2;
+    shiftElement(i, Math.round(dx) / k, Math.round(dy) / k, 1 / k);  // 对齐到点，不吸网格
+  }
+  changed(); renderProps();
+}
+document.querySelectorAll("[data-align]").forEach(b => b.onclick = () => align(b.dataset.align));
+
 document.addEventListener("keydown", e => {
-  if (sel < 0 || !last || ["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)) return;
-  const step = e.shiftKey ? 1 : parseFloat($("#snap").value);
+  if ($("#dlg").open || !selSet.size || !last || ["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)) return;
+  const step = e.shiftKey ? 1 : snapGrid();
   const d = {ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step]}[e.key];
-  if (d && boxOf(sel)) { e.preventDefault(); moveElement(sel, d[0], d[1]); }
+  if (d) { e.preventDefault(); moveSelected(d[0], d[1], 1 / dpm()); }
   if (e.key === "Delete") { e.preventDefault(); removeSelected(); }
+  if (e.key === "Escape") clearSelection();
 });
 
-// ---------- 元素列表 ----------
+// ---------- 选择与元素列表 ----------
 function describe(el) {
   const t = el.text ?? el.data ?? "";
   return (TYPE_NAMES[el.type] || el.type) + (t ? " " + t : "");
@@ -255,41 +422,51 @@ function renderList() {
   $("#elList").innerHTML = "";
   tpl.elements.forEach((el, i) => {
     const li = document.createElement("li");
-    li.className = i === sel ? "sel" : "";
+    li.className = (selSet.has(i) ? "sel" : "") + (i === sel && selSet.size > 1 ? " primary" : "");
     li.innerHTML = `<span></span>${bad.has(i) ? '<span class="w">⚠</span>' : ""}`;
     li.firstChild.textContent = `${i + 1}. ${describe(el)}`;
-    li.onclick = () => select(i);
+    li.onclick = e => select(i, e.shiftKey);
     $("#elList").appendChild(li);
   });
 }
-function select(i) {
-  sel = i; renderList(); renderProps();
-  document.querySelectorAll(".ebox").forEach(n => n.classList.toggle("sel", +n.dataset.el === i));
+function select(i, additive) {
+  if (additive) {
+    if (selSet.has(i)) { selSet.delete(i); sel = selSet.size ? [...selSet].pop() : -1; }
+    else { selSet.add(i); sel = i; }
+  } else { selSet = new Set([i]); sel = i; }
+  renderList(); renderProps(); if (last) drawStage();
 }
+function clearSelection() { sel = -1; selSet = new Set(); if (tpl) { renderList(); renderProps(); } if (last) drawStage(); }
+$("#stageWrap").addEventListener("pointerdown", e => { if (e.target.id === "stageWrap" || e.target.id === "stage" || e.target.id === "img") clearSelection(); });
+
 const NEW_ELEMENTS = {
-  text: () => ({type:"text", x:2, y:2, font:"3", text:"TEXT"}),
+  text: () => ({type:"text", x:2, y:2, family:"arial_bold", size:3, text:"TEXT"}),
   qrcode: () => ({type:"qrcode", x:2, y:2, cell:3, ecc:"L", data:"https://ubiquitous-moonbeam-de771e.netlify.app/"}),
   barcode: () => ({type:"barcode", x:"center", y:2, height:8, narrow:2, data:"{no}"}),
   box: () => ({type:"box", x:1, y:1, w:10, h:10, thickness:0.25}),
   bar: () => ({type:"bar", x:2, y:2, w:20, h:0.5}),
 };
 document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
-  tpl.elements.push(NEW_ELEMENTS[b.dataset.add]()); select(tpl.elements.length - 1); changed();
+  tpl.elements.push(NEW_ELEMENTS[b.dataset.add]()); select(tpl.elements.length - 1, false); changed();
 });
-function removeSelected() {
-  if (sel < 0 || !confirm("删除这个元素？")) return;
-  tpl.elements.splice(sel, 1); sel = -1; renderList(); renderProps(); changed();
+async function removeSelected() {
+  if (!selSet.size) return;
+  const n = selSet.size;
+  if (!(await ask(n > 1 ? `删除选中的 ${n} 个元素？` : "删除这个元素？", "删除"))) return;
+  [...selSet].sort((a, b) => b - a).forEach(i => tpl.elements.splice(i, 1));
+  clearSelection(); changed();
 }
 function reorder(d) {
   const j = sel + d; if (j < 0 || j >= tpl.elements.length) return;
-  [tpl.elements[sel], tpl.elements[j]] = [tpl.elements[j], tpl.elements[sel]]; sel = j; renderList(); changed();
+  [tpl.elements[sel], tpl.elements[j]] = [tpl.elements[j], tpl.elements[sel]];
+  selSet = new Set([j]); sel = j; renderList(); changed();
 }
 
 // ---------- 属性面板 ----------
 function field(label, input, hint) {
+  const wrap = document.createElement("div");
   const l = document.createElement("label"); l.className = "f";
-  l.innerHTML = `<span>${label}</span>`; l.appendChild(input);
-  const wrap = document.createElement("div"); wrap.appendChild(l);
+  l.innerHTML = `<span>${label}</span>`; l.appendChild(input); wrap.appendChild(l);
   if (hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = hint; wrap.appendChild(h); }
   return wrap;
 }
@@ -323,36 +500,62 @@ function checkbox(text, checked, onchange) {
   const c = document.createElement("input"); c.type = "checkbox"; c.checked = checked;
   c.onchange = () => onchange(c.checked); l.appendChild(c); l.append(text); return l;
 }
+function fontSelect(el) {
+  const s = document.createElement("select");
+  const ttf = FONTS_TTF.map(([k, name]) => `<option value="t:${k}">${name}</option>`).join("");
+  const builtin = Object.entries(FONTS_BUILTIN).map(([k, [w, h]]) => `<option value="b:${k}">内置 ${k}（${w}×${h} 点）</option>`).join("");
+  s.innerHTML = `<optgroup label="TrueType（预览即实物）">${ttf}</optgroup><optgroup label="打印机内置（预览为近似）">${builtin}</optgroup>`;
+  s.value = el.family !== undefined ? "t:" + el.family : "b:" + (el.font ?? "3");
+  s.onchange = () => {
+    const [kind, v] = s.value.split(":");
+    if (kind === "t") {
+      if (el.family === undefined) {  // 从内置换过来：按原字高估一个字号
+        const h = FONTS_BUILTIN[el.font ?? "3"][1] * ((el.scale || [1, 1])[1]);
+        el.size = Math.round(h / dpm() * 1.1 * 10) / 10;
+      }
+      el.family = v; delete el.font; delete el.scale;
+    } else {
+      el.font = v; delete el.family; delete el.size;
+    }
+    changed(); renderProps();
+  };
+  return s;
+}
 function renderProps() {
   const p = $("#props"); p.innerHTML = "";
   if (sel < 0 || !tpl.elements[sel]) return;
-  const el = tpl.elements[sel], dpm = last ? last.dots_per_mm : 8;
+  const el = tpl.elements[sel], k = dpm();
   const h = document.createElement("div"); h.style.fontWeight = "600"; h.style.marginBottom = "6px";
-  h.textContent = `#${sel + 1} ${TYPE_NAMES[el.type] || el.type}`; p.appendChild(h);
+  h.textContent = `#${sel + 1} ${TYPE_NAMES[el.type] || el.type}` + (selSet.size > 1 ? `（共选中 ${selSet.size} 个）` : "");
+  p.appendChild(h);
 
   const xIsCenter = el.x === "center", yIsAfter = el.y === "after";
   if (el.type === "text") {
     p.appendChild(field("内容", textInput(el, "text"), "变量：{no} {desc} {model} {price}"));
-    p.appendChild(field("字体", selectInput(el, "font", Object.fromEntries(Object.entries(FONTS).map(([k, v]) => [k, `${k}（${v} 点）`])), "3")));
-    const sc = el.scale || [1, 1];
-    const sx = document.createElement("input"); sx.type = "number"; sx.min = 1; sx.max = 10; sx.value = sc[0];
-    const sy = sx.cloneNode(); sy.value = sc[1];
-    const setScale = () => { el.scale = [Math.max(1, +sx.value || 1), Math.max(1, +sy.value || 1)]; if (el.scale[0] === 1 && el.scale[1] === 1) delete el.scale; changed(); };
-    sx.oninput = sy.oninput = setScale;
-    const both = document.createElement("div"); both.className = "row"; sx.style.width = sy.style.width = "70px"; both.append(sx, "×", sy);
-    p.appendChild(field("放大倍数", both));
+    p.appendChild(field("字体", fontSelect(el)));
+    if (el.family !== undefined) {
+      p.appendChild(field("字号（mm）", numInput(el, "size", {step: 0.1, min: 1}), "也可以拖右下角的小方块"));
+    } else {
+      const sc = el.scale || [1, 1];
+      const sx = document.createElement("input"); sx.type = "number"; sx.min = 1; sx.max = 10; sx.value = sc[0];
+      const sy = sx.cloneNode(); sy.value = sc[1];
+      const setScale = () => { el.scale = [Math.max(1, +sx.value || 1), Math.max(1, +sy.value || 1)]; if (el.scale[0] === 1 && el.scale[1] === 1) delete el.scale; changed(); };
+      sx.oninput = sy.oninput = setScale;
+      const both = document.createElement("div"); both.className = "row"; sx.style.width = sy.style.width = "70px"; both.append(sx, "×", sy);
+      p.appendChild(field("放大倍数", both));
+    }
     p.appendChild(field("对齐", selectInput(el, "align", {left:"左（x = 左边）", right:"右（x = 右边）", center:"中（x = 中线）"}, "left")));
   }
   if (el.type === "qrcode" || el.type === "barcode") {
     p.appendChild(field("内容", textInput(el, "data"), el.type === "barcode" ? "通常是 {no}" : "公司网址"));
   }
   p.appendChild(field("x（mm）", numInput(el, "x", {disabled: xIsCenter, placeholder: xIsCenter ? "居中" : ""})));
-  if (el.type === "barcode") p.appendChild(checkbox("水平居中", xIsCenter, c => { el.x = c ? "center" : snapMm((boxOf(sel)?.[0] ?? 16) / dpm); changed(); renderProps(); }));
+  if (el.type === "barcode") p.appendChild(checkbox("水平居中", xIsCenter, c => { el.x = c ? "center" : roundMm((boxOf(sel)?.[0] ?? 16) / k, 0.125); changed(); renderProps(); }));
   p.appendChild(field("y（mm）", numInput(el, "y", {disabled: yIsAfter, placeholder: yIsAfter ? "接在上一个下面" : ""})));
   if (el.type === "text") {
-    p.appendChild(checkbox("接在上一个元素下面", yIsAfter, c => { el.y = c ? "after" : snapMm((boxOf(sel)?.[1] ?? 16) / dpm); changed(); renderProps(); }));
+    p.appendChild(checkbox("接在上一个元素下面", yIsAfter, c => { el.y = c ? "after" : roundMm((boxOf(sel)?.[1] ?? 16) / k, 0.125); changed(); renderProps(); }));
     if (yIsAfter) p.appendChild(field("间距（mm）", numInput(el, "gap", {optional: true, placeholder: "0"})));
-    p.appendChild(field("最大宽度", numInput(el, "max_width", {optional: true}), "设了才会自动换行（mm）"));
+    p.appendChild(field("换行宽度", numInput(el, "max_width", {optional: true}), "设了才会自动换行（mm），之后可拖右边的小方块"));
     p.appendChild(field("最多行数", numInput(el, "max_lines", {optional: true, int: true, step: 1, min: 1, placeholder: "1"})));
     p.appendChild(field("下边界", numInput(el, "max_bottom", {optional: true}), "行数按到这条线为止的空间自动决定（mm）"));
     p.appendChild(field("行距（mm）", numInput(el, "line_gap", {optional: true, placeholder: "0"})));
@@ -381,10 +584,12 @@ function renderProps() {
 
 // ---------- 打印一张 ----------
 $("#btnPrint").onclick = async () => {
-  if (last && last.warnings.length) { status("有橙色警告，先修好再打印", true); return; }
-  if (!confirm("用当前模板和示例内容打印 1 张？")) return;
-  try { const r = await api("/api/print", {template: tpl, values}); status(`已发送 ${r.sent} 字节，1 张`); }
-  catch (e) { status("打印失败：" + e.message, true); }
+  if (last && last.warnings.length) { status("有橙色警告，先修好再打印", "err"); return; }
+  if (!(await ask(`用当前模板（${tpl.width_mm}×${tpl.height_mm}mm）和示例内容打印 1 张？\n请确认打印机里装的是同样尺寸的标签纸。`, "打印 1 张"))) { status("已取消打印"); return; }
+  const b = $("#btnPrint"); b.disabled = true; status("正在发送…");
+  try { const r = await api("/api/print", {template: tpl, values}); status(`已发送到打印机（${r.sent} 字节，1 张）`, "ok"); }
+  catch (e) { status("打印失败：" + e.message, "err"); }
+  finally { b.disabled = false; }
 };
 
 $("#btnLoad").onclick = () => openTemplate($("#tplSelect").value);
@@ -393,8 +598,8 @@ window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); 
 
 (async () => {
   await refreshList();
-  const first = [...$("#tplSelect").options].map(o => o.value);
-  await openTemplate(first.includes("default_50x40") ? "default_50x40" : first[0]);
+  const names = [...$("#tplSelect").options].map(o => o.value);
+  await openTemplate(names.includes("default_50x40") ? "default_50x40" : names[0]);
 })();
 </script>
 </body>

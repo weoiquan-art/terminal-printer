@@ -64,7 +64,7 @@ def main():
 
     data = tspl.render(label, ops, args.copies)
     if args.dry_run:
-        sys.stdout.write(data.decode("ascii"))
+        sys.stdout.write(tspl.render_many(label, [(ops, args.copies)], display=True))
     if args.preview:
         os.makedirs(os.path.dirname(os.path.abspath(args.preview)), exist_ok=True)
         preview.render(label, ops).save(args.preview)

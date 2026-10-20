@@ -2,7 +2,7 @@
 
 import os
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 _FONT_CANDIDATES = [
     os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", "consolab.ttf"),
@@ -54,6 +54,9 @@ def render(label, ops, scale=2, margin=8):
             d.rectangle([x, y, x + op["w"] - 1, y + op["h"] - 1], outline=0, width=t)
         elif kind == "bar":
             d.rectangle([x, y, x + op["w"] - 1, y + op["h"] - 1], fill=0)
+        elif kind == "bitmap":
+            # 只把黑点叠上去，与打印机 BITMAP 的效果一致
+            img.paste(0, (x, y), ImageOps.invert(op["img"].convert("L")))
 
     # 放大并加一圈灰底，灰线即标签边缘
     big = img.resize((w * scale, h * scale), Image.NEAREST)

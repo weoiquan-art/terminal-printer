@@ -19,7 +19,7 @@ import sys
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from labelkit import layout, preview, printer, tspl
+from labelkit import fonts, layout, preview, printer, tspl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(HERE, "templates")
@@ -91,7 +91,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, f.read(), "text/html; charset=utf-8")
         if path == "/api/templates":
             names = sorted(n[:-5] for n in os.listdir(TEMPLATE_DIR) if n.endswith(".json"))
-            return self._send(200, {"templates": names, "printer": printer.DEFAULT_PRINTER})
+            return self._send(200, {"templates": names, "printer": printer.DEFAULT_PRINTER,
+                                    "fonts": fonts.available(), "builtin_fonts": layout.FONTS})
         if path.startswith("/api/template/"):
             name = path[len("/api/template/"):]
             if not NAME_RE.match(name):

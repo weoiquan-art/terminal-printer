@@ -8,7 +8,7 @@ import string
 
 import qrcode
 
-from . import code128
+from . import code128, fonts
 
 # TSPL 内置字体在 203dpi 下的字符格（宽, 高），单位：点
 FONTS = {
@@ -58,13 +58,23 @@ def _check_ascii(s):
         raise ValueError("暂只支持 ASCII 文字：{!r}".format(s))
 
 
-def _wrap(text, max_chars):
+def _wrap(text, fits):
+    """按空格换行；fits(行) 判断一行放不放得下。中文等无空格的长词按字拆。"""
     lines, cur = [], ""
     for word in text.split():
-        if len(word) > max_chars:
-            raise ValueError("单词太长，放不下一行：{!r}".format(word))
+        if not fits(word):
+            if all(ord(ch) < 128 for ch in word):
+                raise ValueError("单词太长，放不下一行：{!r}".format(word))
+            for ch in word:
+                cand = cur + ch
+                if fits(cand):
+                    cur = cand
+                else:
+                    lines.append(cur)
+                    cur = ch
+            continue
         cand = word if not cur else cur + " " + word
-        if len(cand) <= max_chars:
+        if fits(cand):
             cur = cand
         else:
             lines.append(cur)
@@ -146,6 +156,8 @@ def _element(el, values, dots, label_w, prev_bottom):
 
 
 def _text(el, values, dots, prev_bottom=0):
+    if "family" in el:
+        return _ttext(el, values, dots, prev_bottom)
     s = " ".join(_fill(el["text"], values).split())
     _check_ascii(s)
     font = str(el.get("font", "3"))
@@ -165,7 +177,7 @@ def _text(el, values, dots, prev_bottom=0):
 
     if "max_width" in el:
         max_chars = dots(el["max_width"]) // cw
-        lines = _wrap(s, max_chars)
+        lines = _wrap(s, lambda line: len(line) <= max_chars)
         if len(lines) > max_lines:
             raise ValueError("文字放不下（这里最多 {} 行，每行 {} 字，共 {} 字）：{!r}".format(
                 max(max_lines, 0), max_chars, max(max_lines, 0) * max_chars, s))
@@ -188,6 +200,41 @@ def _text(el, values, dots, prev_bottom=0):
                     "mx": mx, "my": my, "cw": cw, "ch": ch, "s": line})
         y += pitch
     return ops
+
+
+def _ttext(el, values, dots, prev_bottom):
+    """TrueType 文字：整块渲染成一张位图。size 为字号（mm，约等于大写字母高度的 1.4 倍）。"""
+    s = " ".join(_fill(el["text"], values).split())
+    font = fonts.get(el["family"], max(4, dots(el.get("size", 3))))
+    gap = dots(el.get("line_gap", 0))
+    lh = fonts.line_height(font)
+    y = prev_bottom + dots(el.get("gap", 0)) if el["y"] == "after" else dots(el["y"])
+
+    max_lines = el.get("max_lines", 1)
+    if "max_bottom" in el:
+        fit = (dots(el["max_bottom"]) - y - lh) // (lh + gap) + 1
+        max_lines = min(el.get("max_lines", fit), fit)
+    if "max_width" in el:
+        limit = dots(el["max_width"])
+        lines = _wrap(s, lambda line: fonts.measure(font, line) <= limit)
+        if len(lines) > max_lines:
+            raise ValueError("文字放不下（这里最多 {} 行，宽 {}mm）：{!r}".format(
+                max(max_lines, 0), el["max_width"], s))
+    else:
+        lines = [s] if s else []
+    if not lines:
+        return []
+
+    align = el.get("align", "left")
+    width = max(fonts.measure(font, line) for line in lines)
+    left = dots(el["x"])
+    if align == "right":
+        left -= width
+    elif align == "center":
+        left -= width // 2
+    img = fonts.render(font, lines, align, width, gap)
+    return [{"op": "bitmap", "x": left, "y": y, "w": img.width, "h": img.height,
+             "img": img, "s": " / ".join(lines)}]
 
 
 def _qrcode(el, values, dots):

@@ -1,0 +1,64 @@
+{
+  "name": "default_50x40_ttf",
+  "width_mm": 50,
+  "height_mm": 40,
+  "gap_mm": 2,
+  "dots_per_mm": 8,
+  "direction": 1,
+  "elements": [
+    {
+      "type": "text",
+      "x": 1.5,
+      "y": 1.0,
+      "family": "arial_bold",
+      "size": 5,
+      "text": "{no}"
+    },
+    {
+      "type": "qrcode",
+      "x": 1.5,
+      "y": 6.5,
+      "cell": 3,
+      "ecc": "L",
+      "data": "https://ubiquitous-moonbeam-de771e.netlify.app/"
+    },
+    {
+      "type": "text",
+      "x": 14,
+      "y": 6.5,
+      "family": "bahnschrift_bold_cond",
+      "size": 3.6,
+      "text": "{desc}",
+      "max_width": 34.5,
+      "max_lines": 2
+    },
+    {
+      "type": "text",
+      "x": 14,
+      "y": "after",
+      "gap": 0.25,
+      "family": "arial_narrow_bold",
+      "size": 2.8,
+      "text": "{model}",
+      "max_width": 34.5,
+      "max_bottom": 18.5
+    },
+    {
+      "type": "barcode",
+      "x": "center",
+      "y": 19,
+      "height": 9,
+      "narrow": 2,
+      "data": "{no}"
+    },
+    {
+      "type": "text",
+      "x": 48.5,
+      "y": 29.5,
+      "align": "right",
+      "family": "arial_bold",
+      "size": 8,
+      "text": "{price}"
+    }
+  ]
+}
