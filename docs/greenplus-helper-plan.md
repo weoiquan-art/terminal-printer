@@ -98,9 +98,17 @@ Green 备份 .Bak（用户在 Green 里做备份，约 2.5GB）
 
 每一步只在真机上打一张测试标签（用户要求）。
 
+### G0 结果（2026-10-20，经用户允许，只查了列名、行数、日期范围）
+
+- `PO_Receive_Main`、`PO_Receive_Detail`、`PO_Receive_Charges`、`SC_Receive_Main`、`SC_Receive_Detail`：**全部 0 行**。店里不是用这几张表记录进货，或者旧记录已清掉。
+- 列结构是清楚的（Main：`Document no`、`Document Date`、`Supplier Code/Name`、`supp tran no`；Detail：`Document No`、`Line`、`Stock code`、`Quantity`、`Bin / Shelf No`、`UOM`），但没有数据可用。
+- 进货实际记在哪里还不知道。候选：`PO_Batch_Receive_Main/Detail`（批量收货）、`AP_Invoice_Main/Detail`（供应商发票带货品明细）、`SC_Tran_Main/Detail`。这些表**还没查**，要用户另外允许。
+- 不需要单据表的备选：`Stock` 表本身有 `Last Receive Date` 和 `Last Receive Qty`，可以列出「某天收货的货号和最后一次收货数量」。缺点：同一货号一天收两次只看到最后一次，而且没有单号和供应商。
+- 另外发现：快照数据库现在是 **READ_WRITE**，不是 `read-backup.ps1` 应该设置的 READ_ONLY。没有改动它。以后导出脚本连接时要用只读方式，或请用户确认后再把它设回只读。
+
 ## 8. 开工前要问用户
 
-1. 能不能允许我查只读快照里收货单表的**列名、行数、最近日期**（不读具体单据）？这是 G0，决定 4.1 的来源 A 怎么做。
+1. ~~允许查收货单表的列名、行数、最近日期~~（已查，见上）。下一步：要不要允许查 `PO_Batch_Receive_*`、`AP_Invoice_*`、`SC_Tran_*` 的列名、行数和日期范围，找出进货实际记在哪里？还是先用 `Stock.Last Receive Date/Qty` 这个备选？
 2. 多久能从 Green 做一次备份？进货当天要打标签，但备份不是当天的，就只能用来源 B（手动/扫码）。如果每天都能做，来源 A 才实用。
 3. Green 自带的条码/标签功能（`Stock` 表有 `Print Count`、`Last Printed Date`）现在有没有在用？在用的话，要不要和它分工？
 4. 店里有扫码枪吗？有的话，来源 B 和查货都按扫码优先设计。
