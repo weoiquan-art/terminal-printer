@@ -84,10 +84,17 @@ def build(tpl, values):
         return round(mm * dpm)
 
     ops = []
+    prev_bottom = 0  # 上一个元素的下边，供 "y": "after" 使用
     for el in tpl["elements"]:
         kind = el["type"]
         if kind == "text":
-            ops.extend(_text(el, values, dots))
+            text_ops = _text(el, values, dots, prev_bottom)
+            ops.extend(text_ops)
+            if text_ops:
+                prev_bottom = max(bbox(op)[3] for op in text_ops)
+            elif el["y"] != "after":
+                prev_bottom = dots(el["y"])
+            continue
         elif kind == "qrcode":
             ops.append(_qrcode(el, values, dots))
         elif kind == "barcode":
@@ -101,6 +108,7 @@ def build(tpl, values):
                         "w": dots(el["w"]), "h": dots(el["h"])})
         else:
             raise ValueError("未知元素类型：" + kind)
+        prev_bottom = bbox(ops[-1])[3]
 
     for op in ops:
         x0, y0, x1, y1 = bbox(op)
@@ -118,24 +126,34 @@ def build(tpl, values):
     return label, ops
 
 
-def _text(el, values, dots):
-    s = _fill(el["text"], values)
+def _text(el, values, dots, prev_bottom=0):
+    s = " ".join(_fill(el["text"], values).split())
     _check_ascii(s)
     font = str(el.get("font", "3"))
     mx, my = el.get("scale", [1, 1])
     cw, ch = FONTS[font][0] * mx, FONTS[font][1] * my
+    pitch = ch + dots(el.get("line_gap", 0))
+    if el["y"] == "after":
+        y = prev_bottom + dots(el.get("gap", 0))
+    else:
+        y = dots(el["y"])
+
+    max_lines = el.get("max_lines", 1)
+    if "max_bottom" in el:
+        # 行数由剩余高度决定：最后一行的下边不超过 max_bottom
+        fit = (dots(el["max_bottom"]) - y - ch) // pitch + 1
+        max_lines = min(el.get("max_lines", fit), fit)
 
     if "max_width" in el:
         max_chars = dots(el["max_width"]) // cw
         lines = _wrap(s, max_chars)
-        if len(lines) > el.get("max_lines", 1):
-            raise ValueError("文字放不下（最多 {} 行，每行 {} 字）：{!r}".format(
-                el.get("max_lines", 1), max_chars, s))
+        if len(lines) > max_lines:
+            raise ValueError("文字放不下（这里最多 {} 行，每行 {} 字，共 {} 字）：{!r}".format(
+                max(max_lines, 0), max_chars, max(max_lines, 0) * max_chars, s))
     else:
-        lines = [s]
+        lines = [s] if s else []
 
-    x, y = el["x"], dots(el["y"])
-    pitch = ch + dots(el.get("line_gap", 0))
+    x = el["x"]
     ops = []
     for line in lines:
         width = len(line) * cw

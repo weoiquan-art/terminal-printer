@@ -5,14 +5,17 @@ def _quote(s):
     return '"' + s.replace('"', '\\["]') + '"'
 
 
-def render(label, ops, copies=1):
-    lines = [
+def _header(label):
+    return [
         "SIZE {:g} mm,{:g} mm".format(label["width_mm"], label["height_mm"]),
         "GAP {:g} mm,0 mm".format(label["gap_mm"]),
         "DIRECTION {}".format(label["direction"]),
         "REFERENCE 0,0",
-        "CLS",
     ]
+
+
+def _body(ops, copies):
+    lines = ["CLS"]
     for op in ops:
         kind = op["op"]
         if kind == "text":
@@ -32,4 +35,16 @@ def render(label, ops, copies=1):
         elif kind == "bar":
             lines.append("BAR {},{},{},{}".format(op["x"], op["y"], op["w"], op["h"]))
     lines.append("PRINT 1,{}".format(int(copies)))
+    return lines
+
+
+def render(label, ops, copies=1):
+    return render_many(label, [(ops, copies)])
+
+
+def render_many(label, jobs):
+    """jobs：[(ops, 张数), ...]，同一模板的多种标签放进一个打印任务。"""
+    lines = _header(label)
+    for ops, copies in jobs:
+        lines.extend(_body(ops, copies))
     return ("\r\n".join(lines) + "\r\n").encode("ascii")

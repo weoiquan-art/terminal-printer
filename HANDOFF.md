@@ -64,7 +64,7 @@
 |---|---|---|
 | M1 ✅ | 命令行发送硬编码 TSPL，打印一张测试标签 | 真机打出一张 50×40mm 标签，位置不偏、不跳纸 |
 | M2 ✅ | JSON 模板转 TSPL，含二维码+条码+文字，并出预览图 | 同一模板能预览也能打印，预览与实物大致一致 |
-| M3 | 中文位图渲染，变量与 CSV 批量 | 100 张批量不错位，中文清晰 |
+| M3 ✅ | 中文位图渲染（可选，未做），变量与批量 | 批量不错位（4 张测试已过；100 张待实际使用时观察），中文清晰（未做） |
 | M4 | 简单网页编辑器 | 能拖放修改并保存模板 |
 
 M1 完成前不要写任何界面代码。
@@ -87,11 +87,21 @@ M1 完成前不要写任何界面代码。
   - 项目独立 venv：`.venv`（uv 建的 Python 3.12，装有 `requirements.txt` 里的依赖），已加入 .gitignore。重建：`uv venv --python 3.12 .venv` → `uv pip install --python .venv\Scripts\python.exe -r requirements.txt`。
   - 系统 `python` 指向 Hermes 的 venv，不要用它跑本项目。
 
+- M3：**批量功能已通过**（2026-10-20，真机打 3 种共 4 张：张数正确、DESC 里的 `12"` 双引号用 `\["]` 转义正常、不跳纸）。中文位图渲染按第 3 节第 3 条不做。
+  - 流程：`batch.py prepare "货号1" "货号2" -o outatch.xlsx --open` → 在 Excel 核对/修改 DESC、MODEL，填 PRICE、QTY → `batch.py print outatch.xlsx`（检查整表 + 总览图 `_preview.png`）→ 加 `--print` 才打印。任何一行有错整批不打。
+  - xlsx 的 NO/DESC/MODEL/PRICE 列设为文本格式；若 NO 仍被 Excel 改成数字会报错。货号不在数据里只提醒、照样打印。
+  - 零件数据：`tools/import_parts.py` 从 `weoiquan-art/asdic` main@030ffd0 的 `零件主檔_v4.csv`（2026-08 快照，67,068 条）只取 `Stock Code` + `Description` 写到 `data/parts.csv`；`data/` 不进 git（成本、售价、暗号列一律不带）。以后换 Green 新导出的报表，用同一脚本，`--code-col`/`--desc-col` 指定列名。
+  - Description 拆分：第一行 = DESC，其余行合并 = MODEL（含车型和 OD/ID/H 等尺寸，按用户要求不自动删改，打印前用户在 Excel 里自己改）。查货号先精确匹配，再去空格匹配；多个匹配时不猜，写进 NOTE 列。
+  - 版面：DESC 字体 3 最多 2 行（每行 17 字）；MODEL 字体 2 紧接其后，行数按剩余高度（到 18.5mm）自动决定。
+  - Green = Fameplus Accounting 7.x，装在 `Z:` = `\truckmage-svr\Fameplus-ASDIC`，数据在 SQL Server。按 ASDIC 硬约束不连它的数据库、不读 `ServerConn.INI`，只用导出的报表。
+  - 全量数据不改 DESC/MODEL 时 96.7% 直接放得下。放不下的：1,141 条名称超过 2 行（用户在 Excel 缩短）；558 条货号太长，条码在 2 点线宽下超过 50mm（如 `1.3/4X2.1/8X5/16`）；496 条货号含 `"` 或 `!`，条码暂不支持（如 `1"148M`）；3 条含非 ASCII 字符（如 `”`）。
+
 ### 下一位接手者先做
 
-1. 开始 M3（中文部分可选，先不做）：CSV 批量 + 每行张数（= 来货数量），先打 3～5 行小批量，确认不错位、不跳纸，再试 100 张。
-2. 数据问题已答（见第 3 节第 5 条）：价格和张数手填，DESC/MODEL 按货号从 ASDiC/Green 数据带出；还差数据文件路径和字段名。CSV 列暂定 `no,price,qty`（可选 `desc,model` 覆盖数据里的值）。
-3. 拿真实数据跑一遍，看 DESC/MODEL 是否超长，必要时调版面或字体。
+1. 用户问「之后能自己设定大小吗」：现在尺寸写在模板 JSON（`width_mm`/`height_mm`/`gap_mm`），换尺寸要新建模板并重排元素坐标；可视化调整是 M4。先问用户常用的其他尺寸。
+2. 长货号：条码太宽时是否自动降到 1 点线宽（需真机扫码实测），或把条码改成两行/更小字体。
+3. 货号含 `"` / `!` 的条码：查 TSPL 128M 如何转义，真机只打一张验证。
+4. M4：本地网页编辑器（拖放、保存模板）。
 
 ## 8. TSPL 示意（只是示意，必须对照 TSPL/TSPL2 手册核对语法和参数）
 

@@ -60,3 +60,19 @@ def render(label, ops, scale=2, margin=8):
     out = Image.new("L", (big.width + 2 * margin, big.height + 2 * margin), 200)
     out.paste(big, (margin, margin))
     return out
+
+
+def sheet(label, items, columns=3, scale=1):
+    """批量总览：items 为 [(标题, ops), ...]，按网格排列。"""
+    tiles = [render(label, ops, scale=scale, margin=4) for _, ops in items]
+    tw, th = tiles[0].size
+    cap = 22
+    rows = (len(tiles) + columns - 1) // columns
+    out = Image.new("L", (columns * (tw + 12) + 12, rows * (th + cap + 12) + 12), 255)
+    d = ImageDraw.Draw(out)
+    for i, ((title, _), tile) in enumerate(zip(items, tiles)):
+        x = 12 + (i % columns) * (tw + 12)
+        y = 12 + (i // columns) * (th + cap + 12)
+        d.text((x, y), title, fill=0, font=_font(16))
+        out.paste(tile, (x, y + cap))
+    return out
