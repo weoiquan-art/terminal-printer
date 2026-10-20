@@ -106,9 +106,27 @@ Green 备份 .Bak（用户在 Green 里做备份，约 2.5GB）
 - 不需要单据表的备选：`Stock` 表本身有 `Last Receive Date` 和 `Last Receive Qty`，可以列出「某天收货的货号和最后一次收货数量」。缺点：同一货号一天收两次只看到最后一次，而且没有单号和供应商。
 - 另外发现：快照数据库现在是 **READ_WRITE**，不是 `read-backup.ps1` 应该设置的 READ_ONLY。没有改动它。以后导出脚本连接时要用只读方式，或请用户确认后再把它设回只读。
 
+### G0 第二轮（2026-10-20，经用户允许，只查了列名、行数、日期范围）
+
+| 表 | 行数 | 最近建立（First Create Date） | 说明 |
+|---|---|---|---|
+| `PO_Batch_Receive_*` | 全部 0 | — | 没在用 |
+| `SC_Tran_Main` | 151,146 | 2026-09-04（即备份当天） | **一直在用**。有 `Transaction Type`、`Supplier Code/Name`、`Supp Inv No`、`Customer Code`、`Stock Update`，看起来是所有库存单据（进货、销货、调整）共用的表 |
+| `SC_Tran_Detail` | 403,457 | — | 明细：`Document No`、`Transaction Type`、`Line`、`Stock Code`、`Quantity`、`Bin / Shelf No`、`UOM`、`BarCode`、`PO No` |
+| `AP_Invoice_Main` | 26,519 | 2026-08-28 | 供应商发票；有 `Supplier Code/Name`、`Supp Tran No`、`Po No` |
+| `AP_Invoice_Detail` | 64,791 | — | 明细有 `Stock`、`Quantity`、`Receive No`、`Rec Date`、`Bin / Shelf No` |
+| `SC_Tran_*_Temp` / `_Del` / `_log` | 有数据 | — | 草稿、删除记录、修改记录，不用 |
+
+推测：**进货最可能在 `SC_Tran_Main/Detail` 里，用 `Transaction Type` 区分**（有供应商代码的那几种）。`AP_Invoice_*` 是供应商发票，可能和收货对应（`Receive No`）。还要确认：
+
+- `SC_Tran_Main.Transaction Type` 有哪些值、各有多少张（只看代码和数量，不看单据内容），哪一种是进货。
+- 用户挑一张最近的真实进货单（纸本或 Green 画面），核对快照里同一单号的货号和数量是否一致。
+
+日期列里有异常值（如 1899、2286 年），是 Green 里的录入问题，导入时要过滤或标记，不能拿来排序当「最近」。
+
 ## 8. 开工前要问用户
 
-1. ~~允许查收货单表的列名、行数、最近日期~~（已查，见上）。下一步：要不要允许查 `PO_Batch_Receive_*`、`AP_Invoice_*`、`SC_Tran_*` 的列名、行数和日期范围，找出进货实际记在哪里？还是先用 `Stock.Last Receive Date/Qty` 这个备选？
+1. ~~允许查收货单表~~、~~允许查 `PO_Batch_Receive_*`、`AP_Invoice_*`、`SC_Tran_*`~~（都已查，见上）。下一步：允许查 `SC_Tran_Main` 里 `Transaction Type` 的各个值和数量吗？另外挑一张最近的进货单来核对。
 2. 多久能从 Green 做一次备份？进货当天要打标签，但备份不是当天的，就只能用来源 B（手动/扫码）。如果每天都能做，来源 A 才实用。
 3. Green 自带的条码/标签功能（`Stock` 表有 `Print Count`、`Last Printed Date`）现在有没有在用？在用的话，要不要和它分工？
 4. 店里有扫码枪吗？有的话，来源 B 和查货都按扫码优先设计。
