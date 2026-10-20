@@ -274,8 +274,8 @@ $("#zoom").addEventListener("change", () => last && drawStage());
 
 // ---------- 移动 ----------
 function roundMm(v, grid) { return Math.round(Math.round(v / grid) * grid * 1000) / 1000; }
-function shiftElement(i, dxMm, dyMm, grid) {
-  const el = tpl.elements[i], box = boxOf(i), k = dpm();
+function shiftElement(i, dxMm, dyMm, grid, target = tpl) {
+  const el = target.elements[i], box = boxOf(i), k = dpm();
   if (!box) return;
   if (dxMm) {
     const x0 = typeof el.x === "number" ? el.x : box[0] / k;   // "center" 移动后变成固定位置
@@ -286,6 +286,25 @@ function shiftElement(i, dxMm, dyMm, grid) {
     el.y = roundMm(y0 + dyMm, grid);
   }
 }
+// 拖动途中的实时预览：只换图片，不重画元素框（否则会打断拖动）。
+// 同一时间只发一个请求，期间的新位置只保留最后一个。
+let liveOn = false, liveBusy = false, livePending = null;
+function liveRender(t) {
+  livePending = t;
+  if (!liveBusy) liveLoop();
+}
+async function liveLoop() {
+  liveBusy = true;
+  while (livePending) {
+    const t = livePending; livePending = null;
+    try {
+      const res = await api("/api/preview", {template: t, values});
+      if (liveOn) $("#img").src = "data:image/png;base64," + res.png;
+    } catch (e) { /* 拖动途中的预览失败不提示，松手后会正式刷新 */ }
+  }
+  liveBusy = false;
+}
+
 function moveSelected(dxMm, dyMm, grid) {
   for (const i of selSet) shiftElement(i, dxMm, dyMm, grid);
   changed(); renderProps();
@@ -306,10 +325,17 @@ function startDrag(ev) {
     .map(n => ({n, left: parseFloat(n.style.left), top: parseFloat(n.style.top)}));
   const target = ev.currentTarget;
   target.setPointerCapture(ev.pointerId);
-  const move = e => nodes.forEach(o => { o.n.style.left = o.left + e.clientX - sx + "px"; o.n.style.top = o.top + e.clientY - sy + "px"; });
+  const k = zoom() * dpm();
+  liveOn = true;
+  const move = e => {
+    nodes.forEach(o => { o.n.style.left = o.left + e.clientX - sx + "px"; o.n.style.top = o.top + e.clientY - sy + "px"; });
+    const t = structuredClone(tpl);
+    for (const j of selSet) shiftElement(j, (e.clientX - sx) / k, (e.clientY - sy) / k, snapGrid(), t);
+    liveRender(t);
+  };
   const up = e => {
     target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up);
-    const k = zoom() * dpm();
+    liveOn = false;
     if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) moveSelected((e.clientX - sx) / k, (e.clientY - sy) / k, snapGrid());
     else drawStage();  // 只是点选：重画以显示改大小的手柄
   };
@@ -358,14 +384,19 @@ function startResize(ev) {
   const sx = ev.clientX, sy = ev.clientY, tip = $("#sizeTip");
   h.setPointerCapture(ev.pointerId);
   const dims = e => [Math.max(4, ow + (kind === "s" ? 0 : e.clientX - sx)), Math.max(4, oh + (kind === "e" ? 0 : e.clientY - sy))];
+  liveOn = true;
   const move = e => {
     const [w, hh] = dims(e);
     box.style.width = w + "px"; box.style.height = hh + "px";
-    tip.textContent = applySize(el, kind, ow / z, oh / z, w / z, hh / z, false);
+    // 在模板副本上套用新尺寸，实时重画预览图
+    const t = structuredClone(tpl);
+    tip.textContent = applySize(t.elements[sel], kind, ow / z, oh / z, w / z, hh / z, true);
+    liveRender(t);
     Object.assign(tip.style, {display: "block", left: parseFloat(box.style.left) + w + 10 + "px", top: parseFloat(box.style.top) + hh + 4 + "px"});
   };
   const up = e => {
     h.removeEventListener("pointermove", move); h.removeEventListener("pointerup", up);
+    liveOn = false;
     tip.style.display = "none";
     const [w, hh] = dims(e);
     if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) {
