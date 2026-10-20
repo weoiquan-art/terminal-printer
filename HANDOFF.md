@@ -63,6 +63,14 @@
 
 M1 完成前不要写任何界面代码。
 
+### 当前状态
+
+- M1：代码已写（`m1_print_test.py`，只依赖 pywin32），**待用户在 Windows 真机上验证**。
+  - 测试标签：距边 1mm 的外框 + 文字 + 中心十字，用来判断偏移和跳纸。
+  - 运行：`pip install -r requirements.txt` → `python m1_print_test.py --list` 记下打印机名 → `python m1_print_test.py --printer "名称"`。
+  - 间隙可用 `--gap` 调整（默认 2mm）；`--dry-run` 只输出 TSPL。
+  - 真机结果（打印机名、实际间隙、是否偏移/跳纸）待回填到这里。
+
 ## 8. TSPL 示意（只是示意，必须对照 TSPL/TSPL2 手册核对语法和参数）
 
 ```
