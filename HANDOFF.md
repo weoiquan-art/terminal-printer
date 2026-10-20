@@ -75,6 +75,18 @@ M1 完成前不要写任何界面代码。
   - 运行：`pip install -r requirements.txt` → `python m1_print_test.py --list` 记下打印机名 → `python m1_print_test.py --printer "名称"`。
   - 间隙可用 `--gap` 调整（默认 2mm）；`--dry-run` 只输出 TSPL。
   - 真机结果（打印机名、实际间隙、是否偏移/跳纸）待回填到这里。
+- 运行环境（2026-10-20）：
+  - 用户 Windows 已装 Python 3.15（pywin32 312 有 cp315 wheel，可用）。
+  - 云端会话连不到用户电脑和打印机，M1 必须在接打印机的那台电脑上跑。
+  - 用户在 cmd 试过 `claude remote control` 不成功，原因未查明（可能少了短横线 `remote-control`，或本机没装 Claude Code CLI）。下次先让用户跑 `claude --version` 并截图报错。
+  - 备选：做一个双击运行的 `.bat`（装依赖 → 列打印机 → 打测试标签），用户未明确要不要。
+
+### 下一位接手者先做
+
+1. 在用户本机（Claude 桌面版本地会话或 `claude remote-control`）拉取本分支 `claude/amazing-fermi-jqa6qb`。
+2. 跑 M1：`pip install -r requirements.txt` → `--list` → `--printer`，让用户拍照确认外框、十字、走纸。
+3. 把打印机名、实际间隙、偏移情况回填到上面；M1 通过后才开始 M2。
+4. 仍待用户回答：价格和 MODEL 在 ASDiC 数据的哪个字段、价格是否即标签售价；来货数量是手输还是来自进货单/Green 报表（见第 3 节第 5 条）。
 
 ## 8. TSPL 示意（只是示意，必须对照 TSPL/TSPL2 手册核对语法和参数）
 
