@@ -113,13 +113,35 @@ M1 完成前不要写任何界面代码。
   - 第三次反馈：字号调大或字变多后文字「自己删除」。原因：编辑模式下放不下的文字元素整段不画。已改为照样画出全部行（超出部分也画）并标橙色警告（`layout.Overflow` 带着排好的 ops）；严格模式（打印、batch）仍报错不打印。
   - `start_editor.bat` 用户已实际双击启动过（2026-10-20 看到它的进程）。
 
-### 下一位接手者先做
+### 下一位接手者先做（2026-10-20 交接，用户要在新聊天继续）
 
-1. 问用户是否把 `default_50x40_ttf` 设为 batch.py / label.py 的默认模板。
-2. 问用户常用的其他标签尺寸，有需要就在编辑器里排好存成模板。
-3. 长货号：条码太宽时是否自动降到 1 点线宽（需真机扫码实测），或把条码改成两行/更小字体。
-4. 货号含 `"` / `!` 的条码：查 TSPL 128M 如何转义，真机只打一张验证。
-5. 进货/备货助手（仿 GreenPlus）：规划草案见 `docs/greenplus-helper-plan.md`，开工前先问其中第 8 节的问题。用户想做一个模仿 GreenPlus（Fameplus）的程式配合打印编辑器。注意 ASDIC 硬约束：Green 是库存与正式单据的唯一权威，不建第二套扣库存系统，不连/不改 Green 数据库。可行的范围是「进货/备货助手」：读 Green 导出报表或 ASDiC 数据，录来货（货号、数量、价格）→ 直接生成 batch 表并打印，不记库存。开工前先和用户确认范围。
+**进度一句话**：M1～M4 全部真机通过；标签工具已可日常使用（label.py 单张、batch.py 用 Excel 批量、editor.py 网页编辑器 + TrueType 字体）。正在规划「进货/备货助手（仿 GreenPlus）」，停在 G0 收尾：确认 `REC` 是进货单。
+
+**新聊天开场**
+
+1. 在本机 `D:\Users\User\Desktop\terminal printer`（已是本分支的 git 工作副本；本仓库 git 身份已设为 weoiquan-art / weoiquan@gmail.com，只在本仓库生效）。先 `git pull`，再读 CLAUDE.md、本文件、`docs/greenplus-helper-plan.md`。涉及 ASDIC/Green 的事先读 `anthropic-skills:asdic` skill。
+2. 环境：`.venv`（Python 3.12，uv 建）已在本机。若丢失：`uv venv --python 3.12 .venv` → `uv pip install --python .venv\Scripts\python.exe -r requirements.txt`。系统 `python` 是 Hermes 的 venv，别用。
+3. 零件数据 `data/parts.csv` 不进 git。若丢失：从 `weoiquan-art/asdic` main 取 `零件主檔_v4.csv`，跑 `tools/import_parts.py`（只取货号 + Description）。
+4. 编辑器：双击 `start_editor.bat` → `http://127.0.0.1:8765/`。
+
+**接着做（按顺序）**
+
+1. **G0 收尾（进货助手）**：问用户 `REC` 是不是进货单，请用户给一张最近进货单的单号；经用户允许后，只读这一张单（`SC_Tran_Detail` 同单号）的 `Stock Code`、`Quantity` 与纸本/Green 画面核对。快照：LocalDB 实例 `AsdicBackupReader`，数据库 `AsdicSnapshot_20260907_133135`（2026-09-04 的备份），连接串用 `ApplicationIntent=ReadOnly`。
+2. 然后按 `docs/greenplus-helper-plan.md` 第 7 节做 G1（快照 → `data/helper.db`，白名单列、不含成本），开工前问第 8 节剩下的问题（备份频率、Green 自带条码功能是否在用、有没有扫码枪、员工用电脑还是手机）。
+3. 问用户是否把 `default_50x40_ttf` 设为 batch.py / label.py 的默认模板。
+4. 问用户常用的其他标签尺寸，有需要就在编辑器里排好存成模板。
+5. 长货号：条码太宽时是否自动降到 1 点线宽（需真机扫码实测），或把条码改成两行/更小字体。
+6. 货号含 `"` / `!` 的条码：查 TSPL 128M 如何转义，真机只打一张验证。
+
+**快照查询的权限规矩**：用户每次都是逐项允许（只给列名、行数、日期范围、某列的值和张数）。自动权限会把未经允许的快照查询当「读取生产数据」拦下。每次先说清楚要查什么、不查什么，等用户在聊天里允许再查；不读单据内容、成本、顾客资料。快照数据库现在是 READ_WRITE（不是应有的 READ_ONLY），没有改它，要改先问用户。
+
+**踩过的坑**
+
+- Claude 桌面版浏览器窗格里 `window.confirm()` 直接返回 false。页面里一律用自己的 `<dialog>`（编辑器已改好）。
+- `preview_stop` 只停掉 `.venv\Scripts\python.exe` 启动器，真正的 Python 子进程会留着占 8765 端口。清理时只停自己启动的进程；用户自己双击 bat 开的编辑器（命令行没有 `--no-open`）不要停（这次误停过一次，已告知用户）。
+- `python -I` 会忽略 `PYTHONIOENCODING`，中文输出用 `python -I -X utf8`。
+- 在 bash heredoc 里写含 `\r\n` 的 Python 替换脚本容易对不上，改代码优先用 Edit 工具。
+- 测试只打一张标签（用户要求）；多张/多种的逻辑用 `--dry-run` 和总览图检查。
 
 ## 8. TSPL 示意（只是示意，必须对照 TSPL/TSPL2 手册核对语法和参数）
 
