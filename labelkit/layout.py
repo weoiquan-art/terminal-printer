@@ -58,13 +58,29 @@ def _check_ascii(s):
         raise ValueError("暂只支持 ASCII 文字：{!r}".format(s))
 
 
+class Overflow(ValueError):
+    """文字放不下。ops 是照样排出来的全部行（会超出），编辑器用它继续显示文字。"""
+
+    def __init__(self, msg, ops):
+        super().__init__(msg)
+        self.ops = ops
+
+
 def _wrap(text, fits):
-    """按空格换行；fits(行) 判断一行放不放得下。中文等无空格的长词按字拆。"""
-    lines, cur = [], ""
+    """按空格换行；fits(行) 判断一行放不放得下。中文等无空格的长词按字拆。
+
+    返回 (行列表, 放不下一行的英文长词或 None)；长词单独占一行，照样返回。
+    """
+    lines, cur, too_long = [], "", None
     for word in text.split():
         if not fits(word):
             if all(ord(ch) < 128 for ch in word):
-                raise ValueError("单词太长，放不下一行：{!r}".format(word))
+                too_long = too_long or word
+                if cur:
+                    lines.append(cur)
+                lines.append(word)
+                cur = ""
+                continue
             for ch in word:
                 cand = cur + ch
                 if fits(cand):
@@ -81,7 +97,16 @@ def _wrap(text, fits):
             cur = word
     if cur:
         lines.append(cur)
-    return lines
+    return lines, too_long
+
+
+def _overflow_msg(lines, max_lines, too_long, limit_desc, s):
+    if too_long:
+        return "单词太长，放不下一行：{!r}".format(too_long)
+    if len(lines) > max_lines:
+        return "文字放不下（这里最多 {} 行，{}，现在要 {} 行）：{!r}".format(
+            max(max_lines, 0), limit_desc, len(lines), s)
+    return None
 
 
 def build(tpl, values, strict=True):
@@ -103,6 +128,12 @@ def build(tpl, values, strict=True):
     for i, el in enumerate(tpl["elements"]):
         try:
             new_ops = _element(el, values, dots, w, prev_bottom)
+        except Overflow as e:
+            if strict:
+                raise
+            # 放不下也照样画出来（标警告），否则文字在编辑器里像被删掉一样
+            warnings.append((i, str(e)))
+            new_ops = e.ops
         except (ValueError, KeyError) as e:
             if strict:
                 raise
@@ -175,12 +206,11 @@ def _text(el, values, dots, prev_bottom=0):
         fit = (dots(el["max_bottom"]) - y - ch) // pitch + 1
         max_lines = min(el.get("max_lines", fit), fit)
 
+    problem = None
     if "max_width" in el:
         max_chars = dots(el["max_width"]) // cw
-        lines = _wrap(s, lambda line: len(line) <= max_chars)
-        if len(lines) > max_lines:
-            raise ValueError("文字放不下（这里最多 {} 行，每行 {} 字，共 {} 字）：{!r}".format(
-                max(max_lines, 0), max_chars, max(max_lines, 0) * max_chars, s))
+        lines, too_long = _wrap(s, lambda line: len(line) <= max_chars)
+        problem = _overflow_msg(lines, max_lines, too_long, "每行 {} 字".format(max_chars), s)
     else:
         lines = [s] if s else []
 
@@ -199,6 +229,8 @@ def _text(el, values, dots, prev_bottom=0):
         ops.append({"op": "text", "x": left, "y": y, "font": font,
                     "mx": mx, "my": my, "cw": cw, "ch": ch, "s": line})
         y += pitch
+    if problem:
+        raise Overflow(problem, ops)
     return ops
 
 
@@ -214,12 +246,11 @@ def _ttext(el, values, dots, prev_bottom):
     if "max_bottom" in el:
         fit = (dots(el["max_bottom"]) - y - lh) // (lh + gap) + 1
         max_lines = min(el.get("max_lines", fit), fit)
+    problem = None
     if "max_width" in el:
         limit = dots(el["max_width"])
-        lines = _wrap(s, lambda line: fonts.measure(font, line) <= limit)
-        if len(lines) > max_lines:
-            raise ValueError("文字放不下（这里最多 {} 行，宽 {}mm）：{!r}".format(
-                max(max_lines, 0), el["max_width"], s))
+        lines, too_long = _wrap(s, lambda line: fonts.measure(font, line) <= limit)
+        problem = _overflow_msg(lines, max_lines, too_long, "宽 {}mm".format(el["max_width"]), s)
     else:
         lines = [s] if s else []
     if not lines:
@@ -233,8 +264,11 @@ def _ttext(el, values, dots, prev_bottom):
     elif align == "center":
         left -= width // 2
     img = fonts.render(font, lines, align, width, gap)
-    return [{"op": "bitmap", "x": left, "y": y, "w": img.width, "h": img.height,
-             "img": img, "s": " / ".join(lines)}]
+    ops = [{"op": "bitmap", "x": left, "y": y, "w": img.width, "h": img.height,
+            "img": img, "s": " / ".join(lines)}]
+    if problem:
+        raise Overflow(problem, ops)
+    return ops
 
 
 def _qrcode(el, values, dots):
