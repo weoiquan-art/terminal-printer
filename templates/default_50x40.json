@@ -1,0 +1,19 @@
+{
+  "name": "default_50x40",
+  "width_mm": 50,
+  "height_mm": 40,
+  "gap_mm": 2,
+  "dots_per_mm": 8,
+  "direction": 1,
+  "elements": [
+    {"type": "text", "x": 1.5, "y": 1.5, "font": "4", "text": "{no}"},
+    {"type": "qrcode", "x": 1.5, "y": 6.5, "cell": 3, "ecc": "L",
+     "data": "https://ubiquitous-moonbeam-de771e.netlify.app/"},
+    {"type": "text", "x": 14, "y": 6.5, "font": "3", "text": "{desc}",
+     "max_width": 34.5, "max_lines": 1},
+    {"type": "text", "x": 14, "y": 10.5, "font": "2", "text": "{model}",
+     "max_width": 34.5, "max_lines": 3, "line_gap": 0.25},
+    {"type": "barcode", "x": "center", "y": 19, "height": 9, "narrow": 2, "data": "{no}"},
+    {"type": "text", "x": 48.5, "y": 31, "align": "right", "font": "5", "text": "{price}"}
+  ]
+}
