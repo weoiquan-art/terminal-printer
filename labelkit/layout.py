@@ -74,8 +74,12 @@ def _wrap(text, max_chars):
     return lines
 
 
-def build(tpl, values):
-    """返回 (label, ops)。label 含尺寸等参数，ops 为绘制指令列表，坐标单位：点。"""
+def build(tpl, values, strict=True):
+    """返回 (label, ops)。label 含尺寸等参数，ops 为绘制指令列表，坐标单位：点。
+
+    每个 op 带 "el"（来自第几个元素）。strict=False 时（编辑器用）某个元素出错
+    或越界不抛异常，记到 label["warnings"]：[(元素序号, 说明), ...]，出错的元素不画。
+    """
     dpm = tpl.get("dots_per_mm", 8)
     w = round(tpl["width_mm"] * dpm)
     h = round(tpl["height_mm"] * dpm)
@@ -84,36 +88,32 @@ def build(tpl, values):
         return round(mm * dpm)
 
     ops = []
+    warnings = []
     prev_bottom = 0  # 上一个元素的下边，供 "y": "after" 使用
-    for el in tpl["elements"]:
-        kind = el["type"]
-        if kind == "text":
-            text_ops = _text(el, values, dots, prev_bottom)
-            ops.extend(text_ops)
-            if text_ops:
-                prev_bottom = max(bbox(op)[3] for op in text_ops)
-            elif el["y"] != "after":
-                prev_bottom = dots(el["y"])
+    for i, el in enumerate(tpl["elements"]):
+        try:
+            new_ops = _element(el, values, dots, w, prev_bottom)
+        except (ValueError, KeyError) as e:
+            if strict:
+                raise
+            msg = str(e) if isinstance(e, ValueError) else "缺少参数 {}".format(e)
+            warnings.append((i, msg))
             continue
-        elif kind == "qrcode":
-            ops.append(_qrcode(el, values, dots))
-        elif kind == "barcode":
-            ops.append(_barcode(el, values, dots, w))
-        elif kind == "box":
-            ops.append({"op": "box", "x": dots(el["x"]), "y": dots(el["y"]),
-                        "w": dots(el["w"]), "h": dots(el["h"]),
-                        "t": dots(el.get("thickness", 0.25))})
-        elif kind == "bar":
-            ops.append({"op": "bar", "x": dots(el["x"]), "y": dots(el["y"]),
-                        "w": dots(el["w"]), "h": dots(el["h"])})
-        else:
-            raise ValueError("未知元素类型：" + kind)
-        prev_bottom = bbox(ops[-1])[3]
+        for op in new_ops:
+            op["el"] = i
+        ops.extend(new_ops)
+        if new_ops:
+            prev_bottom = max(bbox(op)[3] for op in new_ops)
+        elif el.get("y") != "after":
+            prev_bottom = dots(el["y"])
 
     for op in ops:
         x0, y0, x1, y1 = bbox(op)
         if x0 < 0 or y0 < 0 or x1 > w or y1 > h:
-            raise ValueError("元素超出标签范围：{}".format(describe(op)))
+            msg = "元素超出标签范围：{}".format(describe(op))
+            if strict:
+                raise ValueError(msg)
+            warnings.append((op["el"], msg))
 
     label = {
         "width_mm": tpl["width_mm"],
@@ -122,8 +122,27 @@ def build(tpl, values):
         "direction": tpl.get("direction", 1),
         "w": w,
         "h": h,
+        "warnings": warnings,
     }
     return label, ops
+
+
+def _element(el, values, dots, label_w, prev_bottom):
+    kind = el["type"]
+    if kind == "text":
+        return _text(el, values, dots, prev_bottom)
+    if kind == "qrcode":
+        return [_qrcode(el, values, dots)]
+    if kind == "barcode":
+        return [_barcode(el, values, dots, label_w)]
+    if kind == "box":
+        return [{"op": "box", "x": dots(el["x"]), "y": dots(el["y"]),
+                 "w": dots(el["w"]), "h": dots(el["h"]),
+                 "t": dots(el.get("thickness", 0.25))}]
+    if kind == "bar":
+        return [{"op": "bar", "x": dots(el["x"]), "y": dots(el["y"]),
+                 "w": dots(el["w"]), "h": dots(el["h"])}]
+    raise ValueError("未知元素类型：" + kind)
 
 
 def _text(el, values, dots, prev_bottom=0):

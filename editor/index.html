@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>标签编辑器</title>
+<style>
+  :root {
+    --bg: #f4f4f2; --panel: #fff; --line: #d9d9d4; --text: #1d1d1b; --muted: #6b6b66;
+    --accent: #1f6feb; --warn: #b54708; --warn-bg: #fff4e5; --sel: rgba(31,111,235,.12);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--text); background: var(--bg); }
+  header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 12px;
+           background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  header .spacer { flex: 1; }
+  header select { width: auto; min-width: 160px; }
+  #status { color: var(--muted); min-width: 120px; }
+  #status.err { color: var(--warn); }
+  main { display: grid; grid-template-columns: 260px 1fr 300px; gap: 12px; padding: 12px; align-items: start; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  section h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  label.f { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 6px; margin: 5px 0; }
+  label.f span { color: var(--muted); font-size: 13px; }
+  input, select, button { font: inherit; }
+  input[type=text], input[type=number], select { width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  input[type=checkbox] { margin: 0 4px 0 0; }
+  button { padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; background: #fff; cursor: pointer; }
+  button:hover { border-color: #aaa; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: #b42318; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  #elList { list-style: none; margin: 0; padding: 0; }
+  #elList li { padding: 4px 6px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
+  #elList li.sel { background: var(--sel); }
+  #elList li .w { color: var(--warn); }
+  .center-col { min-width: 0; }
+  #stageWrap { background: #e6e6e1; border: 1px solid var(--line); border-radius: 8px; padding: 24px; overflow: auto; }
+  #stage { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  #stage img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; image-rendering: pixelated; user-select: none; -webkit-user-drag: none; }
+  .ebox { position: absolute; border: 1px dashed rgba(31,111,235,.5); cursor: move; touch-action: none; }
+  .ebox:hover { background: rgba(31,111,235,.06); }
+  .ebox.sel { border: 2px solid var(--accent); background: var(--sel); }
+  .ebox.bad { border-color: var(--warn); }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; color: var(--muted); }
+  #warnings { margin-top: 10px; }
+  #warnings div { background: var(--warn-bg); color: var(--warn); padding: 6px 8px; border-radius: 5px; margin-bottom: 4px; font-size: 13px; cursor: pointer; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; }
+    .center-col { order: -1; }
+  }
+  #props:empty::before { content: "点画布上的元素或左边列表来选中"; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>标签编辑器</h1>
+  <select id="tplSelect" title="模板"></select>
+  <button id="btnLoad">打开</button>
+  <input id="tplName" type="text" style="width:180px" placeholder="模板名（英文）">
+  <button id="btnSave" class="primary">保存</button>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <button id="btnPrint">打印一张</button>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>标签尺寸（mm）</h2>
+      <label class="f"><span>宽</span><input id="w" type="number" step="0.5" min="10" max="108"></label>
+      <label class="f"><span>高</span><input id="h" type="number" step="0.5" min="10" max="300"></label>
+      <label class="f"><span>间隙</span><input id="gap" type="number" step="0.5" min="0" max="10"></label>
+      <div class="hint">XP-420B 最宽约 108mm。改尺寸后，元素不会自动移动，超出范围的会标橙色。</div>
+    </section>
+    <section>
+      <h2>示例内容（只用于预览和打印一张）</h2>
+      <label class="f"><span>NO</span><input data-v="no" type="text"></label>
+      <label class="f"><span>DESC</span><input data-v="desc" type="text"></label>
+      <label class="f"><span>MODEL</span><input data-v="model" type="text"></label>
+      <label class="f"><span>PRICE</span><input data-v="price" type="text"></label>
+    </section>
+    <section>
+      <h2>元素</h2>
+      <ul id="elList"></ul>
+      <div class="row" style="margin-top:8px">
+        <button data-add="text">+ 文字</button>
+        <button data-add="qrcode">+ 二维码</button>
+        <button data-add="barcode">+ 条码</button>
+        <button data-add="box">+ 线框</button>
+        <button data-add="bar">+ 黑条</button>
+      </div>
+    </section>
+  </div>
+  <div class="center-col">
+    <div class="toolbar">
+      <label>缩放 <select id="zoom"><option value="1">1×</option><option value="1.5" selected>1.5×</option><option value="2">2×</option><option value="3">3×</option></select></label>
+      <label>对齐网格 <select id="snap"><option value="0.125">0.125mm（1 点）</option><option value="0.5" selected>0.5mm</option><option value="1">1mm</option></select></label>
+      <span>拖动元素移动；选中后可用方向键微调（Shift = 1mm）</span>
+    </div>
+    <div id="stageWrap"><div id="stage"><img id="img" alt=""></div></div>
+    <div id="warnings"></div>
+  </div>
+  <div>
+    <section>
+      <h2>属性</h2>
+      <div id="props"></div>
+    </section>
+  </div>
+</main>
+<script>
+"use strict";
+const FONTS = {"1":"8×12","2":"12×20","3":"16×24","4":"24×32","5":"32×48","6":"14×19","7":"21×27","8":"14×25"};
+const TYPE_NAMES = {text:"文字", qrcode:"二维码", barcode:"条码", box:"线框", bar:"黑条"};
+const DEFAULT_VALUES = {no:"81 96020 0340", desc:"ENG MTG F RB", model:"18310 18360 22403 26414", price:"RM260+"};
+const $ = s => document.querySelector(s);
+
+let tpl = null, sel = -1, dirty = false, last = null, seq = 0, timer = null;
+let values = loadValues();
+
+function loadValues() {
+  try { return Object.assign({}, DEFAULT_VALUES, JSON.parse(localStorage.getItem("tp.values") || "{}")); }
+  catch (e) { return Object.assign({}, DEFAULT_VALUES); }
+}
+function saveValues() { try { localStorage.setItem("tp.values", JSON.stringify(values)); } catch (e) {} }
+
+function status(msg, err) { const s = $("#status"); s.textContent = msg; s.className = err ? "err" : ""; }
+function setDirty(d) { dirty = d; document.title = (d ? "● " : "") + "标签编辑器"; }
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  const data = await r.json();
+  if (!r.ok) { const e = new Error(data.error || r.statusText); e.data = data; e.status = r.status; throw e; }
+  return data;
+}
+
+// ---------- 模板加载 / 保存 ----------
+async function refreshList(selectName) {
+  const {templates} = await api("/api/templates");
+  $("#tplSelect").innerHTML = templates.map(n => `<option>${n}</option>`).join("");
+  if (selectName) $("#tplSelect").value = selectName;
+}
+async function openTemplate(name) {
+  if (dirty && !confirm("当前修改还没保存，确定打开别的模板？")) return;
+  tpl = await api("/api/template/" + encodeURIComponent(name));
+  $("#tplName").value = name;
+  sel = -1; setDirty(false);
+  syncSizeInputs(); renderList(); renderProps(); schedule(0);
+  status("已打开 " + name);
+}
+async function save() {
+  const name = $("#tplName").value.trim();
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { status("模板名只能用英文字母、数字、- 和 _", true); return; }
+  try {
+    await api("/api/save", {name, template: tpl});
+  } catch (e) {
+    if (e.status === 409 && confirm(`已有模板「${name}」，要覆盖吗？`)) await api("/api/save", {name, template: tpl, overwrite: true});
+    else { if (e.status !== 409) status("保存失败：" + e.message, true); return; }
+  }
+  setDirty(false); await refreshList(name); status("已保存 " + name);
+}
+
+// ---------- 尺寸与示例内容 ----------
+function syncSizeInputs() { $("#w").value = tpl.width_mm; $("#h").value = tpl.height_mm; $("#gap").value = tpl.gap_mm ?? 2; }
+for (const [id, key] of [["#w","width_mm"],["#h","height_mm"],["#gap","gap_mm"]]) {
+  $(id).addEventListener("input", e => { const v = parseFloat(e.target.value); if (!isNaN(v)) { tpl[key] = v; changed(); } });
+}
+document.querySelectorAll("[data-v]").forEach(inp => {
+  inp.value = values[inp.dataset.v] || "";
+  inp.addEventListener("input", () => { values[inp.dataset.v] = inp.value; saveValues(); schedule(); });
+});
+
+// ---------- 预览 ----------
+function changed() { setDirty(true); schedule(); }
+function schedule(delay = 150) { clearTimeout(timer); timer = setTimeout(refresh, delay); }
+async function refresh() {
+  const my = ++seq;
+  try {
+    const res = await api("/api/preview", {template: tpl, values});
+    if (my !== seq) return;
+    last = res; drawStage(); renderList(); status(dirty ? "未保存" : "");
+  } catch (e) { if (my === seq) status("预览失败：" + e.message, true); }
+}
+function zoom() { return parseFloat($("#zoom").value); }
+function drawStage() {
+  const z = zoom(), stage = $("#stage");
+  stage.style.width = last.w * z + "px"; stage.style.height = last.h * z + "px";
+  $("#img").src = "data:image/png;base64," + last.png;
+  stage.querySelectorAll(".ebox").forEach(n => n.remove());
+  const bad = new Set(last.warnings.map(w => w.el));
+  for (const {el, box} of last.boxes) {
+    const d = document.createElement("div");
+    d.className = "ebox" + (el === sel ? " sel" : "") + (bad.has(el) ? " bad" : "");
+    Object.assign(d.style, {left: box[0]*z + "px", top: box[1]*z + "px", width: (box[2]-box[0])*z + "px", height: (box[3]-box[1])*z + "px"});
+    d.dataset.el = el; d.title = describe(tpl.elements[el]);
+    d.addEventListener("pointerdown", startDrag);
+    stage.appendChild(d);
+  }
+  $("#warnings").innerHTML = "";
+  for (const w of last.warnings) {
+    const d = document.createElement("div");
+    d.textContent = `#${w.el + 1} ${TYPE_NAMES[tpl.elements[w.el]?.type] || ""}：${w.msg}`;
+    d.onclick = () => select(w.el);
+    $("#warnings").appendChild(d);
+  }
+}
+$("#zoom").addEventListener("change", () => last && drawStage());
+
+// ---------- 拖动 ----------
+function boxOf(i) { const b = last && last.boxes.find(b => b.el === i); return b ? b.box : null; }
+function snapMm(v) { const s = parseFloat($("#snap").value); return Math.round(Math.round(v / s) * s * 1000) / 1000; }
+function moveElement(i, dxMm, dyMm) {
+  const el = tpl.elements[i], box = boxOf(i), dpm = last.dots_per_mm;
+  if (dxMm) {
+    const x0 = typeof el.x === "number" ? el.x : box[0] / dpm;  // "center" 拖动后变成固定位置
+    el.x = snapMm(x0 + dxMm);
+  }
+  if (dyMm) {
+    const y0 = typeof el.y === "number" ? el.y : box[1] / dpm;  // "after" 拖动后变成固定位置
+    el.y = snapMm(y0 + dyMm);
+  }
+  changed(); renderProps();
+}
+function startDrag(ev) {
+  const node = ev.currentTarget, i = +node.dataset.el;
+  select(i); ev.preventDefault();
+  const sx = ev.clientX, sy = ev.clientY, left = parseFloat(node.style.left), top = parseFloat(node.style.top);
+  const target = document.querySelector(`.ebox[data-el="${i}"]`) || node;
+  target.setPointerCapture(ev.pointerId);
+  const move = e => { target.style.left = left + e.clientX - sx + "px"; target.style.top = top + e.clientY - sy + "px"; };
+  const up = e => {
+    target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", up);
+    const k = zoom() * last.dots_per_mm, dx = (e.clientX - sx) / k, dy = (e.clientY - sy) / k;
+    if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 2) moveElement(i, dx, dy);
+  };
+  target.addEventListener("pointermove", move); target.addEventListener("pointerup", up);
+}
+document.addEventListener("keydown", e => {
+  if (sel < 0 || !last || ["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)) return;
+  const step = e.shiftKey ? 1 : parseFloat($("#snap").value);
+  const d = {ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step]}[e.key];
+  if (d && boxOf(sel)) { e.preventDefault(); moveElement(sel, d[0], d[1]); }
+  if (e.key === "Delete") { e.preventDefault(); removeSelected(); }
+});
+
+// ---------- 元素列表 ----------
+function describe(el) {
+  const t = el.text ?? el.data ?? "";
+  return (TYPE_NAMES[el.type] || el.type) + (t ? " " + t : "");
+}
+function renderList() {
+  const bad = new Set(last ? last.warnings.map(w => w.el) : []);
+  $("#elList").innerHTML = "";
+  tpl.elements.forEach((el, i) => {
+    const li = document.createElement("li");
+    li.className = i === sel ? "sel" : "";
+    li.innerHTML = `<span></span>${bad.has(i) ? '<span class="w">⚠</span>' : ""}`;
+    li.firstChild.textContent = `${i + 1}. ${describe(el)}`;
+    li.onclick = () => select(i);
+    $("#elList").appendChild(li);
+  });
+}
+function select(i) {
+  sel = i; renderList(); renderProps();
+  document.querySelectorAll(".ebox").forEach(n => n.classList.toggle("sel", +n.dataset.el === i));
+}
+const NEW_ELEMENTS = {
+  text: () => ({type:"text", x:2, y:2, font:"3", text:"TEXT"}),
+  qrcode: () => ({type:"qrcode", x:2, y:2, cell:3, ecc:"L", data:"https://ubiquitous-moonbeam-de771e.netlify.app/"}),
+  barcode: () => ({type:"barcode", x:"center", y:2, height:8, narrow:2, data:"{no}"}),
+  box: () => ({type:"box", x:1, y:1, w:10, h:10, thickness:0.25}),
+  bar: () => ({type:"bar", x:2, y:2, w:20, h:0.5}),
+};
+document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+  tpl.elements.push(NEW_ELEMENTS[b.dataset.add]()); select(tpl.elements.length - 1); changed();
+});
+function removeSelected() {
+  if (sel < 0 || !confirm("删除这个元素？")) return;
+  tpl.elements.splice(sel, 1); sel = -1; renderList(); renderProps(); changed();
+}
+function reorder(d) {
+  const j = sel + d; if (j < 0 || j >= tpl.elements.length) return;
+  [tpl.elements[sel], tpl.elements[j]] = [tpl.elements[j], tpl.elements[sel]]; sel = j; renderList(); changed();
+}
+
+// ---------- 属性面板 ----------
+function field(label, input, hint) {
+  const l = document.createElement("label"); l.className = "f";
+  l.innerHTML = `<span>${label}</span>`; l.appendChild(input);
+  const wrap = document.createElement("div"); wrap.appendChild(l);
+  if (hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = hint; wrap.appendChild(h); }
+  return wrap;
+}
+function numInput(el, key, opts = {}) {
+  const i = document.createElement("input"); i.type = "number"; i.step = opts.step ?? 0.125;
+  if (opts.min !== undefined) i.min = opts.min;
+  i.value = typeof el[key] === "number" ? el[key] : "";
+  i.placeholder = opts.placeholder || (opts.optional ? "不限" : "");
+  i.disabled = !!opts.disabled;
+  i.oninput = () => {
+    const v = parseFloat(i.value);
+    if (isNaN(v)) { if (opts.optional) { delete el[key]; changed(); } return; }
+    el[key] = opts.int ? Math.round(v) : v; changed(); renderList();
+  };
+  return i;
+}
+function textInput(el, key) {
+  const i = document.createElement("input"); i.type = "text"; i.value = el[key] ?? "";
+  i.oninput = () => { el[key] = i.value; changed(); renderList(); };
+  return i;
+}
+function selectInput(el, key, options, fallback) {
+  const s = document.createElement("select");
+  s.innerHTML = Object.entries(options).map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  s.value = String(el[key] ?? fallback);
+  s.onchange = () => { el[key] = s.value; changed(); };
+  return s;
+}
+function checkbox(text, checked, onchange) {
+  const l = document.createElement("label"); l.style.display = "block"; l.style.margin = "5px 0";
+  const c = document.createElement("input"); c.type = "checkbox"; c.checked = checked;
+  c.onchange = () => onchange(c.checked); l.appendChild(c); l.append(text); return l;
+}
+function renderProps() {
+  const p = $("#props"); p.innerHTML = "";
+  if (sel < 0 || !tpl.elements[sel]) return;
+  const el = tpl.elements[sel], dpm = last ? last.dots_per_mm : 8;
+  const h = document.createElement("div"); h.style.fontWeight = "600"; h.style.marginBottom = "6px";
+  h.textContent = `#${sel + 1} ${TYPE_NAMES[el.type] || el.type}`; p.appendChild(h);
+
+  const xIsCenter = el.x === "center", yIsAfter = el.y === "after";
+  if (el.type === "text") {
+    p.appendChild(field("内容", textInput(el, "text"), "变量：{no} {desc} {model} {price}"));
+    p.appendChild(field("字体", selectInput(el, "font", Object.fromEntries(Object.entries(FONTS).map(([k, v]) => [k, `${k}（${v} 点）`])), "3")));
+    const sc = el.scale || [1, 1];
+    const sx = document.createElement("input"); sx.type = "number"; sx.min = 1; sx.max = 10; sx.value = sc[0];
+    const sy = sx.cloneNode(); sy.value = sc[1];
+    const setScale = () => { el.scale = [Math.max(1, +sx.value || 1), Math.max(1, +sy.value || 1)]; if (el.scale[0] === 1 && el.scale[1] === 1) delete el.scale; changed(); };
+    sx.oninput = sy.oninput = setScale;
+    const both = document.createElement("div"); both.className = "row"; sx.style.width = sy.style.width = "70px"; both.append(sx, "×", sy);
+    p.appendChild(field("放大倍数", both));
+    p.appendChild(field("对齐", selectInput(el, "align", {left:"左（x = 左边）", right:"右（x = 右边）", center:"中（x = 中线）"}, "left")));
+  }
+  if (el.type === "qrcode" || el.type === "barcode") {
+    p.appendChild(field("内容", textInput(el, "data"), el.type === "barcode" ? "通常是 {no}" : "公司网址"));
+  }
+  p.appendChild(field("x（mm）", numInput(el, "x", {disabled: xIsCenter, placeholder: xIsCenter ? "居中" : ""})));
+  if (el.type === "barcode") p.appendChild(checkbox("水平居中", xIsCenter, c => { el.x = c ? "center" : snapMm((boxOf(sel)?.[0] ?? 16) / dpm); changed(); renderProps(); }));
+  p.appendChild(field("y（mm）", numInput(el, "y", {disabled: yIsAfter, placeholder: yIsAfter ? "接在上一个下面" : ""})));
+  if (el.type === "text") {
+    p.appendChild(checkbox("接在上一个元素下面", yIsAfter, c => { el.y = c ? "after" : snapMm((boxOf(sel)?.[1] ?? 16) / dpm); changed(); renderProps(); }));
+    if (yIsAfter) p.appendChild(field("间距（mm）", numInput(el, "gap", {optional: true, placeholder: "0"})));
+    p.appendChild(field("最大宽度", numInput(el, "max_width", {optional: true}), "设了才会自动换行（mm）"));
+    p.appendChild(field("最多行数", numInput(el, "max_lines", {optional: true, int: true, step: 1, min: 1, placeholder: "1"})));
+    p.appendChild(field("下边界", numInput(el, "max_bottom", {optional: true}), "行数按到这条线为止的空间自动决定（mm）"));
+    p.appendChild(field("行距（mm）", numInput(el, "line_gap", {optional: true, placeholder: "0"})));
+  }
+  if (el.type === "qrcode") {
+    p.appendChild(field("单元（点）", numInput(el, "cell", {int: true, step: 1, min: 1}), "越大越好扫，也越占地方"));
+    p.appendChild(field("纠错", selectInput(el, "ecc", {L:"L（7%）", M:"M（15%）", Q:"Q（25%）", H:"H（30%）"}, "M")));
+  }
+  if (el.type === "barcode") {
+    p.appendChild(field("高度（mm）", numInput(el, "height")));
+    p.appendChild(field("线宽（点）", numInput(el, "narrow", {int: true, step: 1, min: 1}), "2 点已实测可扫；1 点更窄，需实测"));
+  }
+  if (el.type === "box" || el.type === "bar") {
+    p.appendChild(field("宽（mm）", numInput(el, "w")));
+    p.appendChild(field("高（mm）", numInput(el, "h")));
+    if (el.type === "box") p.appendChild(field("线粗（mm）", numInput(el, "thickness")));
+  }
+  const row = document.createElement("div"); row.className = "row"; row.style.marginTop = "10px";
+  const up = document.createElement("button"); up.textContent = "上移"; up.onclick = () => reorder(-1);
+  const dn = document.createElement("button"); dn.textContent = "下移"; dn.onclick = () => reorder(1);
+  const del = document.createElement("button"); del.textContent = "删除"; del.className = "danger"; del.onclick = removeSelected;
+  row.append(up, dn, del); p.appendChild(row);
+  const hint = document.createElement("div"); hint.className = "hint";
+  hint.textContent = "顺序影响「接在上一个元素下面」。"; p.appendChild(hint);
+}
+
+// ---------- 打印一张 ----------
+$("#btnPrint").onclick = async () => {
+  if (last && last.warnings.length) { status("有橙色警告，先修好再打印", true); return; }
+  if (!confirm("用当前模板和示例内容打印 1 张？")) return;
+  try { const r = await api("/api/print", {template: tpl, values}); status(`已发送 ${r.sent} 字节，1 张`); }
+  catch (e) { status("打印失败：" + e.message, true); }
+};
+
+$("#btnLoad").onclick = () => openTemplate($("#tplSelect").value);
+$("#btnSave").onclick = save;
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+(async () => {
+  await refreshList();
+  const first = [...$("#tplSelect").options].map(o => o.value);
+  await openTemplate(first.includes("default_50x40") ? "default_50x40" : first[0]);
+})();
+</script>
+</body>
+</html>
